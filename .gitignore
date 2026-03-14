@@ -30,3 +30,5 @@ Thumbs.db
 memory/
 scripts/serviceAccountKey.json
 .claude/
+bundle-stats.html
+dist/

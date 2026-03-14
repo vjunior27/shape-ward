@@ -1,0 +1,33 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Users: only the owner can read/write their document ──────────────────
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // Sub-collections (tokens, etc.)
+      match /{subcollection}/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // ── Usage counters (rate-limit tracking written by Cloud Function) ────────
+    // Cloud Function uses Admin SDK (bypasses rules), but deny client writes.
+    match /usage/{docId} {
+      allow read:  if request.auth != null && docId.matches(request.auth.uid + '_.*');
+      allow write: if false; // only Admin SDK (Cloud Function)
+    }
+
+    // ── Exercise catalog — read-only for authenticated users ─────────────────
+    match /exercises/{exerciseId} {
+      allow read:  if request.auth != null;
+      allow write: if false;
+    }
+
+    // ── Deny everything else ─────────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,13 +1,18 @@
-import React, { useEffect, useState } from "react";
+import React, { Suspense, lazy, useEffect, useState } from "react";
 import { Layout } from "./components/Layout";
 import { LoginScreen } from "./screens/LoginScreen";
-import { ChatScreen } from "./screens/ChatScreen";
-import { WorkoutScreen } from "./screens/WorkoutScreen";
-import { ProfileScreen } from "./screens/ProfileScreen";
-import { DietScreen } from "./screens/DietScreen";
 import { TutorialModal } from "./components/TutorialModal";
+import LoadingSpinner from "./components/LoadingSpinner";
+import InstallBanner from "./components/InstallBanner";
+import CookieConsent from "./components/CookieConsent";
 import { BrainCircuit } from "lucide-react";
 import { useAppContext } from "./context/AppContext";
+
+// Code-split heavy screens — each loads only when first navigated to
+const ChatScreen    = lazy(() => import("./screens/ChatScreen").then(m => ({ default: m.ChatScreen })));
+const WorkoutScreen = lazy(() => import("./screens/WorkoutScreen").then(m => ({ default: m.WorkoutScreen })));
+const ProfileScreen = lazy(() => import("./screens/ProfileScreen").then(m => ({ default: m.ProfileScreen })));
+const DietScreen    = lazy(() => import("./screens/DietScreen").then(m => ({ default: m.DietScreen })));
 
 export default function App() {
   const {
@@ -67,6 +72,7 @@ export default function App() {
       onLogout={handleLogout}
       userAvatar={userProfile.avatar}
     >
+      <Suspense fallback={<LoadingSpinner />}>
       {currentScreen === "chat" && (
         <ChatScreen
           messages={chatMessages}
@@ -138,6 +144,9 @@ export default function App() {
       {showTutorial && !showDisclaimer && (
         <TutorialModal onClose={handleCloseTutorial} />
       )}
+      </Suspense>
+      <InstallBanner />
+      <CookieConsent />
     </Layout>
   );
 }

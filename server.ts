@@ -1,6 +1,9 @@
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
+import helmet from "helmet";
+import cors from "cors";
+import rateLimit from "express-rate-limit";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -9,7 +12,41 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // API routes FIRST
+  // ── Security headers ────────────────────────────────────────────────────────
+  app.use(
+    helmet({
+      // Allow Firebase SDK and Vite HMR scripts
+      contentSecurityPolicy: false,
+    })
+  );
+
+  // ── CORS ────────────────────────────────────────────────────────────────────
+  const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(",")
+    : ["http://localhost:3000", "http://localhost:5173", "https://shape-ward.web.app"];
+
+  app.use(
+    cors({
+      origin: allowedOrigins,
+      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      credentials: true,
+    })
+  );
+
+  // ── Body parsing ────────────────────────────────────────────────────────────
+  app.use(express.json({ limit: "10kb" }));
+
+  // ── Rate limiting ───────────────────────────────────────────────────────────
+  const globalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Muitas requisições. Tente novamente em 15 minutos." },
+  });
+  app.use("/api/", globalLimiter);
+
+  // ── API routes ──────────────────────────────────────────────────────────────
   app.get("/api/health", (_req: express.Request, res: express.Response) => {
     res.json({ status: "ok" });
   });

@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Body & Background ── */
+body {
+  background: #0a0a0f;
+}
+
+/* ── Glass Utilities ── */
+@layer utilities {
+  .glass {
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+  }
+
+  .glass-card {
+    background: rgba(18, 18, 24, 0.65);
+    backdrop-filter: blur(32px);
+    -webkit-backdrop-filter: blur(32px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  .glass-nav {
+    background: rgba(8, 8, 12, 0.82);
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+  }
+
+  .glass-input {
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .glass-input:focus {
+    border-color: rgba(0, 255, 148, 0.5);
+    box-shadow: 0 0 0 1px rgba(0, 255, 148, 0.25), 0 0 20px rgba(0, 255, 148, 0.08);
+    outline: none;
+  }
+}
+
+/* ── Custom Scrollbar ── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #00FF94;
+}
+
+/* ── Markdown Styles (Chat) ── */
+.markdown-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 0.9em;
+}
+.markdown-content th {
+  background-color: rgba(0, 255, 148, 0.1);
+  color: #00FF94;
+  text-align: left;
+  padding: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+}
+.markdown-content td {
+  padding: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.markdown-content tr:last-child td {
+  border-bottom: none;
+}
+.markdown-content p {
+  margin-bottom: 0.5rem;
+}
+.markdown-content ul,
+.markdown-content ol {
+  margin-left: 1.5rem;
+  margin-bottom: 0.5rem;
+  list-style-type: disc;
+}
+.markdown-content strong {
+  color: #00FF94;
+  font-weight: 600;
+}

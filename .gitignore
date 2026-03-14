@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+functions/node_modules/
+
+# Build outputs
+dist/
+functions/lib/
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+*.secret
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Claude memory (local only)
+memory/
+scripts/serviceAccountKey.json
+.claude/

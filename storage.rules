@@ -1,0 +1,33 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Exercise GIFs — public read, no write from clients
+    match /exercise-gifs/{gif} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // User files (exams, documents) — only owner can read/write
+    match /users/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Health documents — only owner can read/write/delete their own files.
+    // Enforces: authenticated, correct uid, max 10 MB, PDF or image only.
+    match /healthDocs/{uid}/{fileName} {
+      allow read:   if request.auth != null && request.auth.uid == uid;
+      allow write:  if request.auth != null
+                    && request.auth.uid == uid
+                    && request.resource.size <= 10 * 1024 * 1024
+                    && (request.resource.contentType.matches('application/pdf')
+                        || request.resource.contentType.matches('image/.*'));
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Default: deny everything else
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

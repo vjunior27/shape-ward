@@ -1,0 +1,12 @@
+{
+  "name": "shape-ward-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "One-time utility scripts for Shape Ward",
+  "scripts": {
+    "upload-gifs": "node uploadGifs.cjs"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0"
+  }
+}

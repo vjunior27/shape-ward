@@ -739,8 +739,36 @@ export const chatWithTitan = onCall(
     }
 
     if (!responseText) {
-      console.warn(`[TitanAI] Step 10 — empty response text for uid: ${uid}`);
-      return { text: "Não consegui gerar uma resposta. Por favor, tente novamente." };
+      // Gemini 2.5-flash occasionally returns empty text on the first call
+      // (the candidate has finish_reason STOP but no text parts).
+      // Retry once with a simple nudge and no tools to force a text response.
+      console.warn(`[TitanAI] Step 10 — empty response, retrying without tools for uid: ${uid}`);
+      try {
+        const retryResponse = await ai.models.generateContent({
+          model: MODEL_NAME,
+          contents: [
+            ...conversationContents,
+            { role: "user", parts: [{ text: "Por favor, responda a minha pergunta anterior em texto." }] },
+          ],
+          config: {
+            systemInstruction,
+            thinkingConfig: { thinkingBudget: 0 },
+          },
+        });
+        try {
+          responseText = (retryResponse?.text ?? "").trim();
+        } catch {
+          const parts: any[] = retryResponse?.candidates?.[0]?.content?.parts ?? [];
+          responseText = parts.filter((p: any) => typeof p.text === "string").map((p: any) => p.text).join("").trim();
+        }
+      } catch (retryErr: any) {
+        console.error("[TitanAI] Step 10 — retry also failed:", retryErr);
+      }
+
+      if (!responseText) {
+        console.error(`[TitanAI] Step 10 — retry produced empty text for uid: ${uid}`);
+        return { text: "Não consegui gerar uma resposta. Por favor, tente novamente." };
+      }
     }
 
     // ── 11. Output leak detection ──────────────────────────────────────────────

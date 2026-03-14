@@ -5,14 +5,17 @@ import { TutorialModal } from "./components/TutorialModal";
 import LoadingSpinner from "./components/LoadingSpinner";
 import InstallBanner from "./components/InstallBanner";
 import CookieConsent from "./components/CookieConsent";
+import AchievementUnlock from "./components/gamification/AchievementUnlock";
 import { BrainCircuit } from "lucide-react";
 import { useAppContext } from "./context/AppContext";
 
 // Code-split heavy screens — each loads only when first navigated to
-const ChatScreen    = lazy(() => import("./screens/ChatScreen").then(m => ({ default: m.ChatScreen })));
-const WorkoutScreen = lazy(() => import("./screens/WorkoutScreen").then(m => ({ default: m.WorkoutScreen })));
-const ProfileScreen = lazy(() => import("./screens/ProfileScreen").then(m => ({ default: m.ProfileScreen })));
-const DietScreen    = lazy(() => import("./screens/DietScreen").then(m => ({ default: m.DietScreen })));
+const ChatScreen          = lazy(() => import("./screens/ChatScreen").then(m => ({ default: m.ChatScreen })));
+const WorkoutScreen       = lazy(() => import("./screens/WorkoutScreen").then(m => ({ default: m.WorkoutScreen })));
+const ProfileScreen       = lazy(() => import("./screens/ProfileScreen").then(m => ({ default: m.ProfileScreen })));
+const DietScreen          = lazy(() => import("./screens/DietScreen").then(m => ({ default: m.DietScreen })));
+const ActiveWorkoutScreen = lazy(() => import("./screens/ActiveWorkoutScreen"));
+const AchievementsScreen  = lazy(() => import("./screens/AchievementsScreen"));
 
 export default function App() {
   const {
@@ -73,6 +76,14 @@ export default function App() {
       userAvatar={userProfile.avatar}
     >
       <Suspense fallback={<LoadingSpinner />}>
+      {currentScreen === "active-workout" && (
+        <ActiveWorkoutScreen onClose={() => dispatch({ type: "SET_SCREEN", payload: "workouts" })} />
+      )}
+
+      {currentScreen === "achievements" && (
+        <AchievementsScreen />
+      )}
+
       {currentScreen === "chat" && (
         <ChatScreen
           messages={chatMessages}

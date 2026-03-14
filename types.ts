@@ -123,3 +123,172 @@ export enum LoadingState {
   ERROR = "ERROR",
   SUCCESS = "SUCCESS",
 }
+
+// ─── Fase 2: Treino Ativo ──────────────────────────────────────────────────────
+
+export type MuscleGroup =
+  | 'chest' | 'back' | 'shoulders' | 'biceps' | 'triceps'
+  | 'forearms' | 'core' | 'quads' | 'hamstrings' | 'glutes'
+  | 'calves' | 'full_body' | 'cardio';
+
+export type Equipment =
+  | 'barbell' | 'dumbbell' | 'cable' | 'machine'
+  | 'bodyweight' | 'kettlebell' | 'band' | 'other';
+
+/** Exercise from the catalog (exercise-db.json) */
+export interface ExerciseCatalog {
+  id: string;
+  name: string;
+  muscleGroup: MuscleGroup;
+  equipment: Equipment;
+  instructions?: string;
+  gifUrl?: string;
+  isCustom: boolean;
+  createdBy?: string;
+}
+
+export interface ActiveSet {
+  id: string;
+  reps: number;
+  weight: number;
+  unit: 'kg' | 'lbs';
+  rpe?: number;
+  isWarmup: boolean;
+  isDropset: boolean;
+  completed: boolean;
+  completedAt?: string;
+}
+
+export interface ActiveExercise {
+  id: string;
+  exerciseId: string;
+  exerciseName: string;
+  muscleGroup: MuscleGroup;
+  sets: ActiveSet[];
+  notes?: string;
+  restSeconds: number;
+}
+
+export interface FinishedWorkout {
+  id: string;
+  userId: string;
+  templateId?: string;
+  templateName?: string;
+  startedAt: string;
+  finishedAt: string;
+  exercises: ActiveExercise[];
+  notes: string;
+  durationMinutes: number;
+  totalVolume: number;
+  totalSets: number;
+  mood?: 1 | 2 | 3 | 4 | 5;
+  createdAt: string;
+}
+
+export interface WorkoutTemplate {
+  id: string;
+  userId: string;
+  name: string;
+  description?: string;
+  muscleGroups: MuscleGroup[];
+  exercises: {
+    exerciseId: string;
+    exerciseName: string;
+    targetSets: number;
+    targetReps: string;
+    restSeconds: number;
+  }[];
+  color: string;
+  icon: string;
+  usageCount: number;
+  lastUsed?: string;
+  createdAt: string;
+}
+
+export interface PersonalRecord {
+  id: string;
+  userId: string;
+  exerciseId: string;
+  exerciseName: string;
+  type: 'weight' | 'reps' | 'volume';
+  value: number;
+  unit: string;
+  achievedAt: string;
+  workoutId: string;
+  previousValue?: number;
+}
+
+// ─── Fase 2: Nutrição ─────────────────────────────────────────────────────────
+
+export interface FoodItem {
+  id: string;
+  name: string;
+  brand?: string;
+  barcode?: string;
+  servingSize: number;
+  servingUnit: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber?: number;
+  sodium?: number;
+  isCustom: boolean;
+  createdBy?: string;
+}
+
+export interface MealEntry {
+  id: string;
+  foodItemId: string;
+  foodName: string;
+  quantity: number;
+  servingUnit: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+export interface NutritionMeal {
+  id: string;
+  userId: string;
+  date: string;
+  type: 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'pre_workout' | 'post_workout';
+  entries: MealEntry[];
+  totalCalories: number;
+  totalProtein: number;
+  totalCarbs: number;
+  totalFat: number;
+  photoUrl?: string;
+  createdAt: string;
+}
+
+export interface DailyNutritionSummary {
+  date: string;
+  meals: NutritionMeal[];
+  totals: { calories: number; protein: number; carbs: number; fat: number; water: number };
+  goals: { calories: number; protein: number; carbs: number; fat: number; water: number };
+}
+
+export interface FavoriteMeal {
+  id: string;
+  userId: string;
+  name: string;
+  entries: MealEntry[];
+  totalCalories: number;
+  totalProtein: number;
+  usageCount: number;
+  createdAt: string;
+}
+
+// ─── Fase 2: Gamificação ──────────────────────────────────────────────────────
+
+export interface Achievement {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  category: 'streak' | 'workout' | 'nutrition' | 'social' | 'special';
+  xpReward: number;
+  unlockedAt?: string;
+}

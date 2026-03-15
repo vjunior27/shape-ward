@@ -312,7 +312,8 @@ const generateSystemInstruction = (
   workoutHistory: any[],
   dietHistory: any[],
   healthDocNames: string[],
-  aiWorkoutPlan: any
+  aiWorkoutPlan: any,
+  hydration?: { todayMl: number; goalMl: number; percentage: number; weeklyAverage: number; daysMetGoal: number }
 ): string => {
   const name = sanitizeForPrompt(profile.name, 60);
   const sex = profile.sex === "male" ? "Masculino" : "Feminino";
@@ -505,6 +506,12 @@ ${formatAIWorkoutPlanForAI(aiWorkoutPlan)}
 DIETA ATUAL NO APP:
 ${formatDietHistoryForAI(dietHistory)}
 
+${hydration ? `HIDRATAÇÃO HOJE:
+- Consumido: ${hydration.todayMl}ml de ${hydration.goalMl}ml (${hydration.percentage}%)
+- Média semanal: ${Math.round(hydration.weeklyAverage)}ml/dia
+- Dias que atingiu a meta esta semana: ${hydration.daysMetGoal}
+${hydration.percentage < 50 ? '⚠️ Hidratação ABAIXO de 50% da meta hoje — considere recomendar ingestão imediata.' : hydration.percentage >= 100 ? '✅ Meta de hidratação atingida hoje.' : ''}` : ''}
+
 DISCLAIMER MÉDICO OBRIGATÓRIO:
 Sempre que a conversa envolver exames, biomarcadores, sintomas, diagnósticos ou avaliação clínica:
 
@@ -544,6 +551,13 @@ export const chatWithTitan = onCall(
     console.info(`[TitanAI] Request received — uid: ${uid}`);
 
     const userText = request.data.text as string | undefined;
+    const hydrationData = request.data.hydration as {
+      todayMl: number;
+      goalMl: number;
+      percentage: number;
+      weeklyAverage: number;
+      daysMetGoal: number;
+    } | undefined;
 
     if (!userText?.trim()) {
       throw new HttpsError("invalid-argument", "O texto da mensagem é obrigatório.");
@@ -663,7 +677,8 @@ export const chatWithTitan = onCall(
       workoutHistory,
       dietHistory,
       injectedDocNames,
-      aiWorkoutPlan
+      aiWorkoutPlan,
+      hydrationData
     );
 
     const userParts: any[] = [...injectedDocParts, { text: userText }];

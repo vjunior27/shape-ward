@@ -16,6 +16,7 @@ import {
   WeeklyWorkoutPlan,
 } from "../types";
 import { sendMessageToGemini, initializeChat } from "../services/geminiService";
+import { useNutritionStore } from "../stores/useNutritionStore";
 import {
   getUserProfile,
   logoutUser,
@@ -156,6 +157,7 @@ export function useAppContext(): AppContextType {
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
+  const nutritionStore = useNutritionStore();
 
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -360,7 +362,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        const responseText = await sendMessageToGemini(text);
+        const { goals, waterToday, waterHistory } = nutritionStore;
+        const today = new Date().toISOString().split('T')[0];
+        const last7 = Object.entries(waterHistory)
+          .filter(([d]) => d <= today)
+          .sort(([a], [b]) => b.localeCompare(a))
+          .slice(0, 7);
+        const weeklyAverage = last7.length
+          ? last7.reduce((s, [, ml]) => s + ml, 0) / last7.length
+          : 0;
+        const daysMetGoal = last7.filter(([, ml]) => ml >= goals.water).length;
+        const hydration = {
+          todayMl: waterToday,
+          goalMl: goals.water,
+          percentage: Math.round((waterToday / goals.water) * 100),
+          weeklyAverage,
+          daysMetGoal,
+        };
+        const responseText = await sendMessageToGemini(text, hydration);
         const processedText = await processAIResponse(responseText);
 
         const aiMsg: Message = {

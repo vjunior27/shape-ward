@@ -6,10 +6,18 @@ import { functions } from "./firebase";
  * Health documents are now fetched autonomously by the Cloud Function from
  * Firebase Storage — no file data needs to be sent from the client.
  */
-export const sendMessageToGemini = async (text: string): Promise<string> => {
+interface HydrationContext {
+  todayMl: number;
+  goalMl: number;
+  percentage: number;
+  weeklyAverage: number;
+  daysMetGoal: number;
+}
+
+export const sendMessageToGemini = async (text: string, hydration?: HydrationContext): Promise<string> => {
   try {
     const chatWithTitan = httpsCallable(functions, "chatWithTitan", { timeout: 120_000 });
-    const result = await chatWithTitan({ text });
+    const result = await chatWithTitan({ text, hydration });
     const data = result.data as { text: string };
     if (!data?.text) throw new Error("Resposta inválida do servidor de IA.");
     return data.text;

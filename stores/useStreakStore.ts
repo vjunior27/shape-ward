@@ -48,7 +48,8 @@ export const ALL_ACHIEVEMENTS: Omit<Achievement, 'unlockedAt'>[] = [
   { id: 'workouts_500',   name: 'Meio Milhar',        description: '500 treinos',          icon: '🏛️', category: 'workout',   xpReward: 10000},
   { id: 'first_pr',       name: 'Quebrando Limites',  description: '1º recorde pessoal',   icon: '📈', category: 'workout',   xpReward: 200  },
   // Nutrition
-  { id: 'first_meal',     name: 'Primeira Refeição',  description: '1ª refeição registrada', icon: '🍽️', category: 'nutrition', xpReward: 100 },
+  { id: 'first_meal',     name: 'Primeira Refeição',  description: '1ª refeição registrada',       icon: '🍽️', category: 'nutrition', xpReward: 100  },
+  { id: 'water_master',   name: 'Mestre da Hidratação', description: '30 dias atingindo meta de água', icon: '💧', category: 'nutrition', xpReward: 800  },
   // Social
   { id: 'first_share',    name: 'Influencer Fitness', description: '1º compartilhamento',  icon: '📱', category: 'social',    xpReward: 100 },
   { id: 'shares_10',      name: 'Motivador',          description: '10 compartilhamentos', icon: '📣', category: 'social',    xpReward: 300 },
@@ -65,6 +66,7 @@ interface StreakStoreState {
   totalShares: number;
   totalMeals: number;
   firstPR: boolean;
+  waterDaysMetGoal: number;
   xp: number;
   unlockedAchievementIds: string[];
   pendingAchievement: Achievement | null; // shown in toast
@@ -76,6 +78,7 @@ interface StreakStoreState {
   recordShare: () => void;
   recordMeal: () => void;
   recordPR: () => void;
+  recordWaterGoalHit: () => void;
   clearPendingAchievement: () => void;
 
   // Computed
@@ -103,6 +106,7 @@ export const useStreakStore = create<StreakStoreState>()(
       totalShares: 0,
       totalMeals: 0,
       firstPR: false,
+      waterDaysMetGoal: 0,
       xp: 0,
       unlockedAchievementIds: [],
       pendingAchievement: null,
@@ -166,6 +170,12 @@ export const useStreakStore = create<StreakStoreState>()(
         get()._checkAchievements({ firstPR: true });
       },
 
+      recordWaterGoalHit: () => {
+        const newDays = get().waterDaysMetGoal + 1;
+        set({ waterDaysMetGoal: newDays });
+        get()._checkAchievements({ waterDaysMetGoal: newDays });
+      },
+
       clearPendingAchievement: () => set({ pendingAchievement: null }),
 
       // ── Internal achievement checker (not in interface) ──────────────────────
@@ -176,6 +186,7 @@ export const useStreakStore = create<StreakStoreState>()(
         totalShares?: number;
         totalMeals?: number;
         firstPR?: boolean;
+        waterDaysMetGoal?: number;
       }) => {
         const state = get();
         const streak = context.currentStreak ?? state.currentStreak;
@@ -183,6 +194,7 @@ export const useStreakStore = create<StreakStoreState>()(
         const shares = context.totalShares ?? state.totalShares;
         const meals = context.totalMeals ?? state.totalMeals;
         const hasPR = context.firstPR ?? state.firstPR;
+        const waterDays = context.waterDaysMetGoal ?? state.waterDaysMetGoal;
 
         const conditions: Record<string, boolean> = {
           streak_7:     streak >= 7,
@@ -197,6 +209,7 @@ export const useStreakStore = create<StreakStoreState>()(
           workouts_500: workouts >= 500,
           first_pr:     hasPR,
           first_meal:   meals >= 1,
+          water_master: waterDays >= 30,
           first_share:  shares >= 1,
           shares_10:    shares >= 10,
         };
@@ -250,7 +263,9 @@ export const useStreakStore = create<StreakStoreState>()(
       name: 'trainova-streak',
       // Exclude internal method from serialization
       partialize: (state: any) => {
-        const { _checkAchievements, getLevel, getNextLevel, getLevelProgress, getAllAchievements, ...rest } = state;
+        const { _checkAchievements, getLevel, getNextLevel, getLevelProgress, getAllAchievements,
+                recordStreak, useShield, addXP, recordShare, recordMeal, recordPR, recordWaterGoalHit, clearPendingAchievement,
+                ...rest } = state;
         return rest;
       },
     }

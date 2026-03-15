@@ -1,10 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { WeeklyDietPlan, DailyDiet, DietMeal, NutritionMeal } from '../types';
-import { Check, Plus, Trash2, Utensils, BrainCircuit, History, ChevronDown, ChevronRight, Calendar, Clock, Edit2, Flame, X, Search } from 'lucide-react';
-import WaterTracker from '../components/WaterTracker';
+import {
+  Check, Plus, Trash2, Utensils, BrainCircuit, History,
+  ChevronDown, ChevronRight, Calendar, Clock, Edit2, Flame, X,
+  Search, Droplets, Pencil, Undo2, ChevronLeft, ChevronRight as ChevronRightIcon,
+} from 'lucide-react';
 import { useNutritionStore } from '../stores/useNutritionStore';
+import { useStreakStore, XP_VALUES } from '../stores/useStreakStore';
 import { useDailyNutrition, useSearchFoods, useSaveMeal } from '../hooks/useNutritionQueries';
 import { useUserStore } from '../stores/useUserStore';
+import {
+  BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, Tooltip,
+} from 'recharts';
 
 interface DietScreenProps {
   dietHistory: WeeklyDietPlan[];
@@ -14,15 +21,9 @@ interface DietScreenProps {
 // ─── Macro ring ───────────────────────────────────────────────────────────────
 
 function MacroRing({
-  label,
-  consumed,
-  goal,
-  unit,
+  label, consumed, goal, unit,
 }: {
-  label: string;
-  consumed: number;
-  goal: number;
-  unit: string;
+  label: string; consumed: number; goal: number; unit: string;
 }) {
   const pct = Math.min((consumed / Math.max(goal, 1)) * 100, 100);
   const R = 28;
@@ -35,14 +36,8 @@ function MacroRing({
         <svg viewBox="0 0 72 72" className="w-full h-full -rotate-90">
           <circle cx="36" cy="36" r={R} fill="none" stroke="#1E1E2A" strokeWidth="6" />
           <circle
-            cx="36"
-            cy="36"
-            r={R}
-            fill="none"
-            stroke="#00FF94"
-            strokeWidth="6"
-            strokeDasharray={`${dash} ${circ}`}
-            strokeLinecap="round"
+            cx="36" cy="36" r={R} fill="none" stroke="#00FF94" strokeWidth="6"
+            strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -61,15 +56,9 @@ function MacroRing({
 // ─── Add Food Modal ───────────────────────────────────────────────────────────
 
 function AddFoodModal({
-  mealType,
-  userId,
-  date,
-  onClose,
+  mealType, userId, date, onClose,
 }: {
-  mealType: NutritionMeal['type'];
-  userId: string;
-  date: string;
-  onClose: () => void;
+  mealType: NutritionMeal['type']; userId: string; date: string; onClose: () => void;
 }) {
   const [query, setQuery] = useState('');
   const { data: results = [], isFetching } = useSearchFoods(query);
@@ -81,19 +70,17 @@ function AddFoodModal({
       userId,
       date,
       type: mealType,
-      entries: [
-        {
-          id: crypto.randomUUID(),
-          foodItemId: food.id,
-          foodName: food.name,
-          quantity: food.servingSize,
-          servingUnit: food.servingUnit,
-          calories: food.calories,
-          protein: food.protein,
-          carbs: food.carbs,
-          fat: food.fat,
-        },
-      ],
+      entries: [{
+        id: crypto.randomUUID(),
+        foodItemId: food.id,
+        foodName: food.name,
+        quantity: food.servingSize,
+        servingUnit: food.servingUnit,
+        calories: food.calories,
+        protein: food.protein,
+        carbs: food.carbs,
+        fat: food.fat,
+      }],
       totalCalories: food.calories,
       totalProtein: food.protein,
       totalCarbs: food.carbs,
@@ -112,29 +99,18 @@ function AddFoodModal({
         <div className="w-10 h-1 bg-[#1E1E2A] rounded-full mx-auto mb-4" />
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-white font-bold">Adicionar alimento</h3>
-          <button onClick={onClose} className="p-1 text-[#A1A1AA] hover:text-white">
-            <X size={18} />
-          </button>
+          <button onClick={onClose} className="p-1 text-[#A1A1AA] hover:text-white"><X size={18} /></button>
         </div>
-
-        {/* Search input */}
         <div className="relative mb-3">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#52525B]" />
           <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar alimento..."
-            autoFocus
+            type="text" value={query} onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar alimento..." autoFocus
             className="w-full bg-[#1a1a28] border border-[#1E1E2A] rounded-xl pl-9 pr-4 py-2.5 text-white text-sm placeholder-[#52525B] focus:outline-none focus:border-primary/40"
           />
         </div>
-
-        {/* Results */}
         <div className="flex-1 overflow-y-auto space-y-2">
-          {isFetching && (
-            <p className="text-[#A1A1AA] text-sm text-center py-4">Buscando...</p>
-          )}
+          {isFetching && <p className="text-[#A1A1AA] text-sm text-center py-4">Buscando...</p>}
           {!isFetching && query.length >= 2 && results.length === 0 && (
             <p className="text-[#52525B] text-sm text-center py-4">Nenhum resultado para "{query}"</p>
           )}
@@ -146,9 +122,7 @@ function AddFoodModal({
             >
               <div>
                 <p className="text-white text-sm font-medium">{food.name}</p>
-                <p className="text-[#52525B] text-xs">
-                  {food.servingSize}{food.servingUnit} · P:{food.protein}g · C:{food.carbs}g · G:{food.fat}g
-                </p>
+                <p className="text-[#52525B] text-xs">{food.servingSize}{food.servingUnit} · P:{food.protein}g · C:{food.carbs}g · G:{food.fat}g</p>
               </div>
               <p className="text-primary font-bold text-sm shrink-0 ml-3">{food.calories} kcal</p>
             </button>
@@ -159,12 +133,430 @@ function AddFoodModal({
   );
 }
 
-// ─── Hoje Tab ─────────────────────────────────────────────────────────────────
+// ─── Goal Editor Modal ────────────────────────────────────────────────────────
 
-function HojeTab() {
-  const { goals, waterToday, addWater } = useNutritionStore();
+function GoalEditorModal({
+  current, onSave, onClose,
+}: {
+  current: number; onSave: (ml: number) => void; onClose: () => void;
+}) {
+  const [value, setValue] = useState(current);
+  const weight = useUserStore((s) => s.user?.displayName) ?? '';
+  const suggestion = 35 * 70; // default 70kg suggestion
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end" onClick={onClose}>
+      <div
+        className="w-full bg-[#12121a] border-t border-[#1E1E2A] rounded-t-3xl p-6 animate-slideUp"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="w-10 h-1 bg-[#1E1E2A] rounded-full mx-auto mb-5" />
+        <h3 className="text-white font-bold text-lg mb-1">Meta de Hidratação</h3>
+        <p className="text-[#A1A1AA] text-xs mb-5">
+          Recomendação: 35ml × peso corporal/dia
+          {suggestion > 0 && ` ≈ ${(suggestion / 1000).toFixed(1)}L para 70kg`}
+        </p>
+
+        <div className="flex items-center justify-center gap-4 mb-6">
+          <span className="text-4xl font-bold text-primary">
+            {(value / 1000).toFixed(1)}
+          </span>
+          <span className="text-xl text-[#A1A1AA]">L</span>
+        </div>
+
+        <input
+          type="range"
+          min={500}
+          max={6000}
+          step={250}
+          value={value}
+          onChange={(e) => setValue(Number(e.target.value))}
+          className="w-full accent-primary mb-2"
+        />
+        <div className="flex justify-between text-xs text-[#52525B] mb-6">
+          <span>500ml</span>
+          <span>6L</span>
+        </div>
+
+        {/* Quick presets */}
+        <div className="grid grid-cols-4 gap-2 mb-6">
+          {[1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000].map((ml) => (
+            <button
+              key={ml}
+              onClick={() => setValue(ml)}
+              className={`py-2 rounded-xl text-sm font-medium transition-colors ${
+                value === ml
+                  ? 'bg-primary text-black'
+                  : 'bg-[#1a1a28] border border-[#1E1E2A] text-[#A1A1AA] hover:border-primary/40'
+              }`}
+            >
+              {ml >= 1000 ? `${ml / 1000}L` : `${ml}ml`}
+            </button>
+          ))}
+        </div>
+
+        <button
+          onClick={() => { onSave(value); onClose(); }}
+          className="w-full bg-primary text-black font-bold py-4 rounded-2xl hover:bg-primaryDark transition-all"
+        >
+          Salvar Meta
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Custom amount modal ──────────────────────────────────────────────────────
+
+function CustomAmountModal({
+  onAdd, onClose,
+}: {
+  onAdd: (ml: number) => void; onClose: () => void;
+}) {
+  const [value, setValue] = useState('');
+
+  const handleSubmit = () => {
+    const ml = parseInt(value, 10);
+    if (ml > 0) { onAdd(ml); onClose(); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end" onClick={onClose}>
+      <div
+        className="w-full bg-[#12121a] border-t border-[#1E1E2A] rounded-t-3xl p-6 animate-slideUp"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="w-10 h-1 bg-[#1E1E2A] rounded-full mx-auto mb-5" />
+        <h3 className="text-white font-bold text-lg mb-4">Quantidade personalizada</h3>
+        <div className="relative mb-4">
+          <input
+            type="number"
+            inputMode="numeric"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="Ex: 350"
+            autoFocus
+            className="w-full bg-[#1a1a28] border border-[#1E1E2A] rounded-xl px-4 py-3 text-white text-lg placeholder-[#52525B] focus:outline-none focus:border-primary/40 pr-16"
+          />
+          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[#A1A1AA]">ml</span>
+        </div>
+        <button
+          onClick={handleSubmit}
+          disabled={!value || parseInt(value) <= 0}
+          className="w-full bg-primary text-black font-bold py-4 rounded-2xl hover:bg-primaryDark transition-all disabled:opacity-40"
+        >
+          Adicionar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Undo Toast ───────────────────────────────────────────────────────────────
+
+function UndoToast({ ml, onUndo, onDismiss }: { ml: number; onUndo: () => void; onDismiss: () => void }) {
+  const [progress, setProgress] = useState(100);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    const duration = 5000;
+    const tick = 100;
+    const decrement = (tick / duration) * 100;
+    intervalRef.current = setInterval(() => {
+      setProgress((p) => {
+        if (p <= 0) { onDismiss(); return 0; }
+        return p - decrement;
+      });
+    }, tick);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [onDismiss]);
+
+  const fmt = (v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}L` : `${v}ml`;
+
+  return (
+    <div className="fixed bottom-24 left-4 right-4 z-50 animate-fadeIn">
+      <div className="bg-[#1a1a28] border border-[#1E1E2A] rounded-2xl overflow-hidden shadow-xl">
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-2">
+            <Droplets size={16} className="text-blue-400" />
+            <span className="text-white text-sm font-medium">+{fmt(ml)} adicionado</span>
+          </div>
+          <button
+            onClick={onUndo}
+            className="flex items-center gap-1.5 text-primary text-sm font-bold hover:text-primaryDark transition-colors"
+          >
+            <Undo2 size={14} />
+            Desfazer
+          </button>
+        </div>
+        <div className="h-0.5 bg-[#1E1E2A]">
+          <div
+            className="h-full bg-primary transition-none rounded-full"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Hidra Tab ────────────────────────────────────────────────────────────────
+
+function HidraTab() {
+  const { goals, waterToday, waterEntries, waterHistory, addWater, removeWaterEntry, setGoals, resetWaterIfNewDay } =
+    useNutritionStore();
+  const { addXP, recordWaterGoalHit } = useStreakStore();
+
+  const [showGoalEditor, setShowGoalEditor] = useState(false);
+  const [showCustom, setShowCustom] = useState(false);
+  const [undoEntry, setUndoEntry] = useState<{ id: string; ml: number } | null>(null);
+  const goalMetRef = useRef(false);
+
+  useEffect(() => { resetWaterIfNewDay(); }, []);
+
+  const goalMl = goals.water;
+  const pct = Math.min((waterToday / goalMl) * 100, 100);
+  const goalHit = waterToday >= goalMl;
+
+  // Award XP once when goal is first hit
+  useEffect(() => {
+    if (goalHit && !goalMetRef.current) {
+      goalMetRef.current = true;
+      addXP(XP_VALUES.WATER_GOAL_HIT);
+      recordWaterGoalHit();
+    }
+    if (!goalHit) goalMetRef.current = false;
+  }, [goalHit]);
+
+  const fmt = (ml: number) =>
+    ml >= 1000
+      ? `${(ml / 1000).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}L`
+      : `${ml}ml`;
+
+  const handleAdd = (ml: number) => {
+    const id = addWater(ml);
+    setUndoEntry({ id, ml });
+  };
+
+  const handleUndo = () => {
+    if (undoEntry) {
+      removeWaterEntry(undoEntry.id);
+      setUndoEntry(null);
+    }
+  };
+
+  // Weekly chart data — last 7 days
+  const weekData = (() => {
+    const days: { label: string; ml: number; met: boolean }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const ml = waterHistory[dateStr] ?? 0;
+      const labels = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+      days.push({ label: labels[d.getDay()], ml, met: ml >= goalMl });
+    }
+    return days;
+  })();
+
+  // Today's entries
+  const today = new Date().toISOString().split('T')[0];
+  const todayEntries = waterEntries.filter((e) => e.date === today);
+
+  const timeLabel = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Hero water drop */}
+      <div className={`bg-surface rounded-3xl border p-6 flex flex-col items-center transition-all ${goalHit ? 'border-primary/40 shadow-[0_0_30px_rgba(0,255,148,0.12)]' : 'border-[#1E1E2A]'}`}>
+        {/* Large SVG water drop */}
+        <div className="relative w-36 h-36 mb-4">
+          <svg viewBox="0 0 144 144" className="w-full h-full" aria-hidden>
+            <defs>
+              <clipPath id="drop-clip">
+                <path d="M72 8 C72 8 20 68 20 96 C20 124 44 136 72 136 C100 136 124 124 124 96 C124 68 72 8 72 8 Z" />
+              </clipPath>
+              <linearGradient id="water-grad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={goalHit ? '#00FF94' : '#60a5fa'} stopOpacity="0.9" />
+                <stop offset="100%" stopColor={goalHit ? '#00cc76' : '#3b82f6'} stopOpacity="0.7" />
+              </linearGradient>
+            </defs>
+            {/* Drop outline */}
+            <path
+              d="M72 8 C72 8 20 68 20 96 C20 124 44 136 72 136 C100 136 124 124 124 96 C124 68 72 8 72 8 Z"
+              fill="none"
+              stroke={goalHit ? '#00FF94' : '#1E3A5F'}
+              strokeWidth="2"
+            />
+            {/* Fill background */}
+            <path
+              d="M72 8 C72 8 20 68 20 96 C20 124 44 136 72 136 C100 136 124 124 124 96 C124 68 72 8 72 8 Z"
+              fill="#0a0a14"
+            />
+            {/* Animated fill */}
+            <g clipPath="url(#drop-clip)">
+              <rect
+                x="0"
+                y={144 - (144 * pct) / 100}
+                width="144"
+                height="144"
+                fill="url(#water-grad)"
+                className="transition-all duration-700 ease-out"
+              />
+              {/* Wave effect */}
+              {pct > 0 && pct < 100 && (
+                <path
+                  d={`M-20 ${144 - (144 * pct) / 100} Q16 ${144 - (144 * pct) / 100 - 6} 52 ${144 - (144 * pct) / 100} T124 ${144 - (144 * pct) / 100} T196 ${144 - (144 * pct) / 100} V144 H-20 Z`}
+                  fill="url(#water-grad)"
+                  className="transition-all duration-700"
+                />
+              )}
+            </g>
+          </svg>
+          {/* Percentage text inside drop */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className={`text-2xl font-bold leading-none ${goalHit ? 'text-black' : 'text-white'}`}>
+              {Math.round(pct)}%
+            </span>
+            {goalHit && <span className="text-black text-lg mt-1">✓</span>}
+          </div>
+        </div>
+
+        {/* Numbers */}
+        <p className="text-3xl font-bold text-white leading-none mb-1">{fmt(waterToday)}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-[#A1A1AA] text-sm">de {fmt(goalMl)}</p>
+          <button
+            onClick={() => setShowGoalEditor(true)}
+            className="p-1 text-[#52525B] hover:text-primary transition-colors"
+            aria-label="Editar meta"
+          >
+            <Pencil size={12} />
+          </button>
+        </div>
+
+        {goalHit && (
+          <div className="mt-3 bg-primary/10 border border-primary/20 rounded-xl px-4 py-2">
+            <p className="text-primary text-sm font-semibold text-center">🎉 Meta diária atingida! +{XP_VALUES.WATER_GOAL_HIT} XP</p>
+          </div>
+        )}
+
+        {/* Quick add buttons */}
+        <div className="grid grid-cols-4 gap-2 mt-5 w-full">
+          {[
+            { label: '+250ml', ml: 250 },
+            { label: '+500ml', ml: 500 },
+            { label: '+1L',    ml: 1000 },
+          ].map(({ label, ml }) => (
+            <button
+              key={label}
+              onClick={() => handleAdd(ml)}
+              className="flex-1 py-3 text-sm font-semibold rounded-2xl bg-[#1a1a28] border border-[#1E1E2A] text-[#A1A1AA] hover:border-primary/40 hover:text-primary transition-colors"
+            >
+              {label}
+            </button>
+          ))}
+          <button
+            onClick={() => setShowCustom(true)}
+            className="flex-1 py-3 text-sm font-semibold rounded-2xl bg-[#1a1a28] border border-[#1E1E2A] text-[#A1A1AA] hover:border-primary/40 hover:text-primary transition-colors flex items-center justify-center"
+            aria-label="Outro"
+          >
+            <Pencil size={14} />
+          </button>
+        </div>
+      </div>
+
+      {/* Weekly bar chart */}
+      <div className="bg-surface rounded-2xl border border-[#1E1E2A] p-4">
+        <p className="text-xs font-semibold text-[#A1A1AA] uppercase tracking-wide mb-3">Últimos 7 dias</p>
+        <ResponsiveContainer width="100%" height={80}>
+          <BarChart data={weekData} barCategoryGap="30%">
+            <XAxis dataKey="label" tick={{ fill: '#52525B', fontSize: 10 }} axisLine={false} tickLine={false} />
+            <YAxis hide domain={[0, Math.max(goalMl * 1.1, 1000)]} />
+            <Tooltip
+              contentStyle={{ background: '#12121a', border: '1px solid #1E1E2A', borderRadius: 8, fontSize: 12 }}
+              labelStyle={{ color: '#A1A1AA' }}
+              formatter={(v: number) => [v >= 1000 ? `${(v / 1000).toFixed(1)}L` : `${v}ml`, 'Água']}
+              cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+            />
+            <Bar dataKey="ml" radius={[4, 4, 0, 0]}>
+              {weekData.map((entry, i) => (
+                <Cell key={i} fill={entry.met ? '#00FF94' : '#1E3A5F'} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Today's entries */}
+      {todayEntries.length > 0 && (
+        <div className="bg-surface rounded-2xl border border-[#1E1E2A] overflow-hidden">
+          <div className="px-4 py-3 border-b border-[#1E1E2A]">
+            <p className="text-xs font-semibold text-[#A1A1AA] uppercase tracking-wide">Hoje</p>
+          </div>
+          <div className="divide-y divide-[#1E1E2A]">
+            {todayEntries.map((entry) => (
+              <div key={entry.id} className="flex items-center justify-between px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <Droplets size={14} className="text-blue-400 shrink-0" />
+                  <div>
+                    <p className="text-white text-sm font-medium">{fmt(entry.ml)}</p>
+                    <p className="text-[#52525B] text-xs">{timeLabel(entry.time)}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => removeWaterEntry(entry.id)}
+                  className="p-1.5 text-[#52525B] hover:text-red-400 transition-colors"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Modals */}
+      {showGoalEditor && (
+        <GoalEditorModal
+          current={goalMl}
+          onSave={(ml) => setGoals({ water: ml })}
+          onClose={() => setShowGoalEditor(false)}
+        />
+      )}
+      {showCustom && (
+        <CustomAmountModal
+          onAdd={handleAdd}
+          onClose={() => setShowCustom(false)}
+        />
+      )}
+      {undoEntry && (
+        <UndoToast
+          ml={undoEntry.ml}
+          onUndo={handleUndo}
+          onDismiss={() => setUndoEntry(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Nutri Tab ────────────────────────────────────────────────────────────────
+
+function NutriTab({
+  dietHistory,
+  onUpdateDietDay,
+}: {
+  dietHistory: WeeklyDietPlan[];
+  onUpdateDietDay: (id: 'current' | 'last', day: DailyDiet) => void;
+}) {
+  const { goals } = useNutritionStore();
   const userId = useUserStore((s) => s.user?.uid) ?? '';
 
+  // Date selector for logging
   const [dateOffset, setDateOffset] = useState(0);
   const [addingMealType, setAddingMealType] = useState<NutritionMeal['type'] | null>(null);
 
@@ -175,7 +567,6 @@ function HojeTab() {
   })();
 
   const { data: dailyNutrition } = useDailyNutrition(targetDate);
-
   const totals = dailyNutrition?.totals ?? { calories: 0, protein: 0, carbs: 0, fat: 0, water: 0 };
 
   const dateLabel = (() => {
@@ -187,23 +578,47 @@ function HojeTab() {
 
   const MEAL_SECTIONS: { type: NutritionMeal['type']; label: string }[] = [
     { type: 'breakfast', label: 'Café da Manhã' },
-    { type: 'lunch', label: 'Almoço' },
-    { type: 'dinner', label: 'Jantar' },
-    { type: 'snack', label: 'Lanche' },
+    { type: 'lunch',     label: 'Almoço' },
+    { type: 'dinner',    label: 'Jantar' },
+    { type: 'snack',     label: 'Lanche' },
   ];
 
   const mealsOfType = (type: NutritionMeal['type']) =>
     (dailyNutrition?.meals ?? []).filter((m) => m.type === type);
 
+  // AI weekly plan (collapsible)
+  const [showPlano, setShowPlano] = useState(false);
+  const [planoTab, setPlanoTab] = useState<'current' | 'last'>('current');
+  const [expandedDay, setExpandedDay] = useState<number | null>(new Date().getDay());
+
+  const activePlan = dietHistory.find((d) => d.id === planoTab);
+  const days = activePlan?.days || [];
+
+  const toggleItem = (dayIndex: number, mealIndex: number, itemIndex: number) => {
+    const day = days[dayIndex];
+    const newMeals = [...day.meals];
+    newMeals[mealIndex].items[itemIndex].isConsumed = !newMeals[mealIndex].items[itemIndex].isConsumed;
+    onUpdateDietDay(planoTab, { ...day, meals: newMeals });
+  };
+
+  const calculateProgress = (meals: DietMeal[]) => {
+    let total = 0, consumed = 0;
+    meals.forEach((m) => m.items.forEach((i) => { total++; if (i.isConsumed) consumed++; }));
+    return total === 0 ? 0 : (consumed / total) * 100;
+  };
+
+  const calculateDayCal = (meals: DietMeal[]) =>
+    meals.reduce((s, m) => s + m.items.reduce((ss, i) => ss + (i.calories ?? 0), 0), 0);
+
   return (
     <div className="space-y-4">
-      {/* Date header */}
+      {/* Date selector */}
       <div className="flex items-center justify-between bg-surface rounded-2xl px-4 py-3 border border-[#1E1E2A]">
         <button
           onClick={() => setDateOffset((o) => o - 1)}
           className="p-1.5 rounded-lg text-[#A1A1AA] hover:text-white transition-colors"
         >
-          ‹
+          <ChevronLeft size={18} />
         </button>
         <p className="text-white font-semibold text-sm">{dateLabel}</p>
         <button
@@ -211,7 +626,7 @@ function HojeTab() {
           disabled={dateOffset >= 0}
           className="p-1.5 rounded-lg text-[#A1A1AA] hover:text-white transition-colors disabled:opacity-30"
         >
-          ›
+          <ChevronRightIcon size={18} />
         </button>
       </div>
 
@@ -219,16 +634,13 @@ function HojeTab() {
       <div className="bg-surface rounded-2xl border border-[#1E1E2A] p-4">
         <div className="grid grid-cols-4 gap-2">
           <MacroRing label="Calorias" consumed={totals.calories} goal={goals.calories} unit="kcal" />
-          <MacroRing label="Proteína" consumed={totals.protein} goal={goals.protein} unit="g" />
-          <MacroRing label="Carbos" consumed={totals.carbs} goal={goals.carbs} unit="g" />
-          <MacroRing label="Gordura" consumed={totals.fat} goal={goals.fat} unit="g" />
+          <MacroRing label="Proteína" consumed={totals.protein}  goal={goals.protein}  unit="g"    />
+          <MacroRing label="Carbos"   consumed={totals.carbs}    goal={goals.carbs}    unit="g"    />
+          <MacroRing label="Gordura"  consumed={totals.fat}      goal={goals.fat}      unit="g"    />
         </div>
       </div>
 
-      {/* Water tracker */}
-      <WaterTracker current={waterToday} goal={goals.water} onAdd={addWater} />
-
-      {/* Meals sections */}
+      {/* Meal sections */}
       {MEAL_SECTIONS.map(({ type, label }) => {
         const meals = mealsOfType(type);
         const sectionCals = meals.reduce((s, m) => s + m.totalCalories, 0);
@@ -237,31 +649,23 @@ function HojeTab() {
           <div key={type} className="bg-surface rounded-2xl border border-[#1E1E2A] overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-[#1E1E2A]">
               <p className="text-white font-semibold text-sm">{label}</p>
-              {sectionCals > 0 && (
-                <p className="text-primary text-xs font-bold">{sectionCals} kcal</p>
-              )}
+              {sectionCals > 0 && <p className="text-primary text-xs font-bold">{sectionCals} kcal</p>}
             </div>
-
-            {meals.length > 0 ? (
+            {meals.length > 0 && (
               <div className="divide-y divide-[#1E1E2A]">
                 {meals.map((meal) =>
                   meal.entries.map((entry) => (
                     <div key={entry.id} className="flex items-center justify-between px-4 py-2.5">
                       <div>
                         <p className="text-white text-sm">{entry.foodName}</p>
-                        <p className="text-[#52525B] text-xs">
-                          {entry.quantity}{entry.servingUnit} · P:{Math.round(entry.protein)}g
-                        </p>
+                        <p className="text-[#52525B] text-xs">{entry.quantity}{entry.servingUnit} · P:{Math.round(entry.protein)}g</p>
                       </div>
-                      <p className="text-[#A1A1AA] text-sm font-medium shrink-0 ml-3">
-                        {Math.round(entry.calories)} kcal
-                      </p>
+                      <p className="text-[#A1A1AA] text-sm font-medium shrink-0 ml-3">{Math.round(entry.calories)} kcal</p>
                     </div>
                   ))
                 )}
               </div>
-            ) : null}
-
+            )}
             <button
               onClick={() => setAddingMealType(type)}
               className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs text-[#A1A1AA] hover:text-primary transition-colors"
@@ -272,7 +676,110 @@ function HojeTab() {
         );
       })}
 
-      {/* Add food modal */}
+      {/* Collapsible AI plan */}
+      <div className="bg-surface rounded-2xl border border-[#1E1E2A] overflow-hidden">
+        <button
+          onClick={() => setShowPlano((v) => !v)}
+          className="w-full flex items-center justify-between px-4 py-4"
+        >
+          <div className="flex items-center gap-2">
+            <BrainCircuit size={16} className="text-primary" />
+            <p className="text-white font-semibold text-sm">Plano Semanal da IA</p>
+          </div>
+          {showPlano ? <ChevronDown size={16} className="text-primary" /> : <ChevronRight size={16} className="text-[#A1A1AA]" />}
+        </button>
+
+        {showPlano && (
+          <div className="border-t border-[#1E1E2A] animate-fadeIn">
+            {/* Sub-tabs */}
+            <div className="flex px-4 pt-3 gap-4 border-b border-white/5">
+              {(['current', 'last'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setPlanoTab(tab)}
+                  className={`flex-1 pb-3 text-sm font-medium border-b-2 transition-colors ${planoTab === tab ? 'border-primary text-white' : 'border-transparent text-gray-500'}`}
+                >
+                  {tab === 'current' ? 'Esta Semana' : 'Semana Passada'}
+                </button>
+              ))}
+            </div>
+
+            <div className="p-3 space-y-2">
+              {days.length === 0 ? (
+                <div className="flex flex-col items-center py-8 text-center">
+                  <BrainCircuit size={28} className="text-gray-600 mb-2" />
+                  <p className="text-gray-400 text-sm">Nenhum plano para {planoTab === 'current' ? 'esta semana' : 'a semana passada'}.</p>
+                  {planoTab === 'current' && <p className="text-xs text-primary mt-1">Peça ao Coach para gerar sua dieta.</p>}
+                </div>
+              ) : (
+                days.map((day, dayIndex) => {
+                  const isExpanded = expandedDay === dayIndex;
+                  const progress = calculateProgress(day.meals);
+                  const isToday = new Date().toISOString().split('T')[0] === day.date;
+                  const dayCal = calculateDayCal(day.meals);
+
+                  return (
+                    <div key={day.date} className={`rounded-xl border transition-all ${isExpanded ? 'border-primary/40' : 'border-white/5'}`}>
+                      <button onClick={() => setExpandedDay(isExpanded ? null : dayIndex)} className="w-full flex flex-col p-3">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <div className={`p-1.5 rounded-lg ${isToday ? 'bg-primary text-black' : 'bg-white/5 text-gray-400'}`}>
+                              <Calendar size={14} />
+                            </div>
+                            <span className={`font-semibold text-sm ${isToday ? 'text-primary' : 'text-white'}`}>{day.dayName}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {dayCal > 0 && <span className="text-xs font-bold text-primary">{dayCal} kcal</span>}
+                            <span className="text-xs text-gray-400">{Math.round(progress)}%</span>
+                            {isExpanded ? <ChevronDown size={14} className="text-primary" /> : <ChevronRight size={14} className="text-gray-500" />}
+                          </div>
+                        </div>
+                        <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-primary to-primaryDark transition-all duration-500" style={{ width: `${progress}%` }} />
+                        </div>
+                      </button>
+
+                      {isExpanded && (
+                        <div className="px-3 pb-3 space-y-2 border-t border-white/5 pt-2 animate-fadeIn">
+                          {day.meals.map((meal, mIdx) => (
+                            <div key={meal.id} className="bg-surface/50 rounded-lg p-2.5">
+                              <div className="flex items-center gap-2 mb-1.5">
+                                <div className="flex items-center gap-1 text-primary text-[10px] font-bold bg-primary/10 px-2 py-0.5 rounded">
+                                  <Clock size={9} />
+                                  <span>{meal.time}</span>
+                                </div>
+                                <span className="text-white text-xs font-semibold">{meal.name}</span>
+                              </div>
+                              <div className="space-y-1">
+                                {meal.items.map((item, iIdx) => (
+                                  <div key={item.id} className={`flex items-center gap-2 ${item.isConsumed ? 'opacity-50' : ''}`}>
+                                    <button
+                                      onClick={() => toggleItem(dayIndex, mIdx, iIdx)}
+                                      className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${item.isConsumed ? 'bg-primary border-primary text-black' : 'border-gray-600 hover:border-primary'}`}
+                                    >
+                                      {item.isConsumed && <Check size={10} strokeWidth={3} />}
+                                    </button>
+                                    <span className={`flex-1 text-xs ${item.isConsumed ? 'line-through text-gray-500' : 'text-gray-300'}`}>{item.name}</span>
+                                    <span className="text-xs text-gray-500">{item.quantity}</span>
+                                    {item.calories != null && (
+                                      <span className={`text-xs font-semibold shrink-0 ${item.isConsumed ? 'text-gray-600' : 'text-primary/70'}`}>{item.calories} kcal</span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
       {addingMealType && userId && (
         <AddFoodModal
           mealType={addingMealType}
@@ -285,269 +792,13 @@ function HojeTab() {
   );
 }
 
-// ─── AI Plan Tab (existing DietScreen content) ────────────────────────────────
-
-function PlanoTab({
-  dietHistory,
-  onUpdateDietDay,
-}: {
-  dietHistory: WeeklyDietPlan[];
-  onUpdateDietDay: (id: 'current' | 'last', day: DailyDiet) => void;
-}) {
-  const [activeTab, setActiveTab] = useState<'current' | 'last'>('current');
-  const [expandedDayIndex, setExpandedDayIndex] = useState<number | null>(new Date().getDay());
-
-  const activePlan = dietHistory.find((d) => d.id === activeTab);
-  const days = activePlan?.days || [];
-
-  const toggleDay = (index: number) => {
-    setExpandedDayIndex(expandedDayIndex === index ? null : index);
-  };
-
-  const updateMealHeader = (dayIndex: number, mealIndex: number, field: 'name' | 'time', value: string) => {
-    const day = days[dayIndex];
-    const newMeals = [...day.meals];
-    if (newMeals[mealIndex]) {
-      (newMeals[mealIndex] as any)[field] = value;
-      onUpdateDietDay(activeTab, { ...day, meals: newMeals });
-    }
-  };
-
-  const toggleItem = (dayIndex: number, mealIndex: number, itemIndex: number) => {
-    const day = days[dayIndex];
-    const newMeals = [...day.meals];
-    newMeals[mealIndex].items[itemIndex].isConsumed = !newMeals[mealIndex].items[itemIndex].isConsumed;
-    onUpdateDietDay(activeTab, { ...day, meals: newMeals });
-  };
-
-  const updateItem = (dayIndex: number, mealIndex: number, itemIndex: number, field: 'name' | 'quantity' | 'calories', value: string) => {
-    const day = days[dayIndex];
-    const newMeals = [...day.meals];
-    const item = newMeals[mealIndex].items[itemIndex];
-    if (item) {
-      if (field === 'calories') {
-        item.calories = value === '' ? undefined : Number(value);
-      } else {
-        (item as any)[field] = value;
-      }
-      onUpdateDietDay(activeTab, { ...day, meals: newMeals });
-    }
-  };
-
-  const calculateMealCalories = (meal: DietMeal): number =>
-    meal.items.reduce((sum, item) => sum + (item.calories ?? 0), 0);
-
-  const calculateDayCalories = (meals: DietMeal[]): number =>
-    meals.reduce((sum, meal) => sum + calculateMealCalories(meal), 0);
-
-  const calculateWeeklyAvgCalories = (): number => {
-    const daysWithData = days.filter((d) => calculateDayCalories(d.meals) > 0);
-    if (daysWithData.length === 0) return 0;
-    const total = daysWithData.reduce((s, d) => s + calculateDayCalories(d.meals), 0);
-    return Math.round(total / daysWithData.length);
-  };
-
-  const removeItem = (dayIndex: number, mealIndex: number, itemIndex: number) => {
-    const day = days[dayIndex];
-    const newMeals = [...day.meals];
-    newMeals[mealIndex].items.splice(itemIndex, 1);
-    onUpdateDietDay(activeTab, { ...day, meals: newMeals });
-  };
-
-  const addItem = (dayIndex: number, mealIndex: number) => {
-    const day = days[dayIndex];
-    const newMeals = [...day.meals];
-    newMeals[mealIndex].items.push({
-      id: Date.now().toString(),
-      name: '',
-      quantity: '',
-      isConsumed: false,
-    });
-    onUpdateDietDay(activeTab, { ...day, meals: newMeals });
-  };
-
-  const calculateProgress = (meals: DietMeal[]) => {
-    let total = 0;
-    let consumed = 0;
-    meals.forEach((m) =>
-      m.items.forEach((i) => {
-        total++;
-        if (i.isConsumed) consumed++;
-      })
-    );
-    return total === 0 ? 0 : (consumed / total) * 100;
-  };
-
-  return (
-    <div className="space-y-4">
-      {/* Sub-tab: Esta Semana / Semana Passada */}
-      <div className="flex gap-4 border-b border-white/5 pb-0">
-        <button
-          onClick={() => setActiveTab('current')}
-          className={`flex-1 pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'current' ? 'border-primary text-white' : 'border-transparent text-gray-500'}`}
-        >
-          Esta Semana
-        </button>
-        <button
-          onClick={() => setActiveTab('last')}
-          className={`flex-1 pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'last' ? 'border-primary text-white' : 'border-transparent text-gray-500'}`}
-        >
-          Semana Passada
-        </button>
-      </div>
-
-      {calculateWeeklyAvgCalories() > 0 && (
-        <div className="flex items-center gap-1.5 bg-primary/10 border border-primary/20 rounded-xl px-3 py-2 w-fit ml-auto">
-          <Flame size={14} className="text-primary" />
-          <div className="text-right">
-            <p className="text-primary font-bold text-sm leading-none">{calculateWeeklyAvgCalories().toLocaleString('pt-BR')}</p>
-            <p className="text-[9px] text-gray-500 uppercase tracking-wide">kcal/dia</p>
-          </div>
-        </div>
-      )}
-
-      {days.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-64 text-center">
-          <div className="bg-white/5 p-6 rounded-full mb-4">
-            {activeTab === 'current' ? <BrainCircuit size={32} className="text-gray-500" /> : <History size={32} className="text-gray-500" />}
-          </div>
-          <p className="text-gray-400 font-medium">Nenhum registro para {activeTab === 'current' ? 'esta semana' : 'a semana passada'}.</p>
-          {activeTab === 'current' && <p className="text-xs text-primary mt-2">Peça ao Coach para gerar sua dieta.</p>}
-        </div>
-      ) : (
-        days.map((day, dayIndex) => {
-          const isExpanded = expandedDayIndex === dayIndex;
-          const progress = calculateProgress(day.meals);
-          const isToday = new Date().toISOString().split('T')[0] === day.date;
-
-          return (
-            <div key={day.date} className={`bg-surface rounded-xl border transition-all ${isExpanded ? 'border-primary/50' : 'border-white/5'}`}>
-              <button onClick={() => toggleDay(dayIndex)} className="w-full flex flex-col p-4">
-                <div className="w-full flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${isToday ? 'bg-primary text-black' : 'bg-white/5 text-gray-400'}`}>
-                      <Calendar size={18} />
-                    </div>
-                    <div className="text-left">
-                      <h3 className={`font-bold ${isToday ? 'text-primary' : 'text-white'}`}>{day.dayName}</h3>
-                      <span className="text-[10px] text-gray-500">{day.date.split('-').reverse().slice(0, 2).join('/')}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {calculateDayCalories(day.meals) > 0 && (
-                      <span className="text-xs font-bold text-primary">{calculateDayCalories(day.meals)} kcal</span>
-                    )}
-                    <span className="text-xs text-gray-400">{Math.round(progress)}%</span>
-                    {isExpanded ? <ChevronDown size={18} className="text-primary" /> : <ChevronRight size={18} className="text-gray-500" />}
-                  </div>
-                </div>
-                <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-primary to-primaryDark transition-all duration-500"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-              </button>
-
-              {isExpanded && (
-                <div className="p-2 space-y-4 bg-[#121212] border-t border-white/5 animate-fadeIn">
-                  {day.meals.map((meal, mIdx) => (
-                    <div key={meal.id} className="bg-surface/50 rounded-lg p-3 group">
-                      <div className="flex justify-between items-center mb-2 border-b border-white/5 pb-2">
-                        <div className="flex items-center gap-2 w-full">
-                          <div className="flex items-center gap-1 text-primary text-[10px] font-bold uppercase tracking-wider bg-primary/10 px-2 py-1 rounded">
-                            <Clock size={10} />
-                            <input
-                              disabled={activeTab === 'last'}
-                              value={meal.time}
-                              onChange={(e) => updateMealHeader(dayIndex, mIdx, 'time', e.target.value)}
-                              className="bg-transparent border-b border-transparent focus:border-primary/50 focus:outline-none w-10 text-center text-primary"
-                            />
-                          </div>
-                          <div className="flex-1">
-                            <input
-                              disabled={activeTab === 'last'}
-                              value={meal.name}
-                              onChange={(e) => updateMealHeader(dayIndex, mIdx, 'name', e.target.value)}
-                              className="bg-transparent text-sm font-bold text-white border-b border-transparent focus:border-white/20 focus:outline-none w-full px-1"
-                              placeholder="Nome da Refeição"
-                            />
-                          </div>
-                          {calculateMealCalories(meal) > 0 && (
-                            <span className="text-[10px] font-bold text-primary/80 whitespace-nowrap">{calculateMealCalories(meal)} kcal</span>
-                          )}
-                          {activeTab === 'current' && <Edit2 size={12} className="text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />}
-                        </div>
-                      </div>
-
-                      <div className="space-y-1">
-                        {meal.items.map((item, iIdx) => (
-                          <div key={item.id} className={`flex items-center gap-2 p-2 rounded transition-all ${item.isConsumed ? 'opacity-50' : ''}`}>
-                            <button
-                              onClick={() => toggleItem(dayIndex, mIdx, iIdx)}
-                              disabled={activeTab === 'last'}
-                              className={`w-5 h-5 rounded border flex items-center justify-center transition-colors shrink-0 ${item.isConsumed ? 'bg-primary border-primary text-black' : 'border-gray-600 hover:border-primary'}`}
-                            >
-                              {item.isConsumed && <Check size={12} strokeWidth={3} />}
-                            </button>
-
-                            <div className="flex-1 grid grid-cols-4 gap-1">
-                              <input
-                                disabled={activeTab === 'last'}
-                                className={`bg-transparent col-span-2 text-sm focus:outline-none border-b border-transparent focus:border-white/20 ${item.isConsumed ? 'line-through text-gray-500' : 'text-gray-200'}`}
-                                value={item.name}
-                                onChange={(e) => updateItem(dayIndex, mIdx, iIdx, 'name', e.target.value)}
-                                placeholder="Alimento"
-                              />
-                              <input
-                                disabled={activeTab === 'last'}
-                                className={`bg-transparent text-center text-sm focus:outline-none border-b border-transparent focus:border-white/20 ${item.isConsumed ? 'text-gray-600' : 'text-gray-300'}`}
-                                value={item.quantity}
-                                onChange={(e) => updateItem(dayIndex, mIdx, iIdx, 'quantity', e.target.value)}
-                                placeholder="Qtd"
-                              />
-                              <span className={`text-right text-xs self-center font-semibold ${item.calories ? (item.isConsumed ? 'text-gray-600' : 'text-primary/80') : 'text-gray-700'}`}>
-                                {item.calories ? `${item.calories} kcal` : '—'}
-                              </span>
-                            </div>
-
-                            {activeTab === 'current' && (
-                              <button onClick={() => removeItem(dayIndex, mIdx, iIdx)} className="text-gray-600 hover:text-red-500 p-1">
-                                <Trash2 size={14} />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-
-                        {activeTab === 'current' && (
-                          <button
-                            onClick={() => addItem(dayIndex, mIdx)}
-                            className="w-full mt-2 py-1 text-[10px] border border-dashed border-white/10 rounded text-gray-500 hover:text-primary hover:border-primary/30 flex items-center justify-center gap-1 transition-colors"
-                          >
-                            <Plus size={12} /> Adicionar
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })
-      )}
-    </div>
-  );
-}
-
 // ─── Main DietScreen ──────────────────────────────────────────────────────────
 
 export const DietScreen: React.FC<DietScreenProps> = ({ dietHistory, onUpdateDietDay }) => {
-  const [activeTab, setActiveTab] = useState<'hoje' | 'plano'>('hoje');
+  const [activeTab, setActiveTab] = useState<'hidra' | 'nutri'>('hidra');
 
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden">
-      {/* Header */}
       <div className="p-4 bg-surface border-b border-white/5 pb-0">
         <div className="flex items-center gap-3 border-l-4 border-primary pl-4 mb-4">
           <Utensils className="text-primary" />
@@ -559,25 +810,27 @@ export const DietScreen: React.FC<DietScreenProps> = ({ dietHistory, onUpdateDie
 
         <div className="flex gap-4">
           <button
-            onClick={() => setActiveTab('hoje')}
-            className={`flex-1 pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'hoje' ? 'border-primary text-white' : 'border-transparent text-gray-500'}`}
+            onClick={() => setActiveTab('hidra')}
+            className={`flex-1 pb-3 text-sm font-medium border-b-2 transition-colors flex items-center justify-center gap-1.5 ${activeTab === 'hidra' ? 'border-primary text-white' : 'border-transparent text-gray-500'}`}
           >
-            Hoje
+            <Droplets size={14} />
+            Hidra
           </button>
           <button
-            onClick={() => setActiveTab('plano')}
-            className={`flex-1 pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'plano' ? 'border-primary text-white' : 'border-transparent text-gray-500'}`}
+            onClick={() => setActiveTab('nutri')}
+            className={`flex-1 pb-3 text-sm font-medium border-b-2 transition-colors flex items-center justify-center gap-1.5 ${activeTab === 'nutri' ? 'border-primary text-white' : 'border-transparent text-gray-500'}`}
           >
-            Plano da IA
+            <Utensils size={14} />
+            Nutri
           </button>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 pb-24">
-        {activeTab === 'hoje' ? (
-          <HojeTab />
+        {activeTab === 'hidra' ? (
+          <HidraTab />
         ) : (
-          <PlanoTab dietHistory={dietHistory} onUpdateDietDay={onUpdateDietDay} />
+          <NutriTab dietHistory={dietHistory} onUpdateDietDay={onUpdateDietDay} />
         )}
       </div>
     </div>

@@ -102,7 +102,7 @@ function MessageContent({
     return (
       <div className="space-y-3">
         {textWithoutJson && (
-          <div className="markdown-content prose prose-invert prose-sm max-w-none">
+          <div className="markdown-content prose prose-invert prose-sm max-w-none break-words overflow-hidden">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{textWithoutJson}</ReactMarkdown>
           </div>
         )}
@@ -115,7 +115,7 @@ function MessageContent({
   }
 
   return (
-    <div className="markdown-content prose prose-invert prose-sm max-w-none">
+    <div className="markdown-content prose prose-invert prose-sm max-w-none break-words overflow-hidden">
       <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
     </div>
   );
@@ -203,7 +203,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               key={msg.id}
               className={`flex ${isUser ? 'justify-end' : 'justify-start'} animate-fadeIn`}
             >
-              <div className={`flex max-w-[90%] md:max-w-[75%] ${isUser ? 'flex-row-reverse' : 'flex-row'} items-end gap-2.5`}>
+              <div className={`flex max-w-[85%] md:max-w-[75%] min-w-0 ${isUser ? 'flex-row-reverse' : 'flex-row'} items-end gap-2.5`}>
                 <div className={`
                   w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 shadow-lg
                   ${isUser
@@ -214,7 +214,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 </div>
 
                 <div className={`
-                  p-4 md:p-5 text-sm leading-relaxed shadow-xl transition-all
+                  min-w-0 overflow-hidden p-4 md:p-5 text-sm leading-relaxed shadow-xl transition-all
                   ${isUser
                     ? 'bg-primary/8 text-emerald-50 rounded-3xl rounded-tr-md border border-primary/15 backdrop-blur-sm'
                     : 'glass-card text-zinc-100 rounded-3xl rounded-tl-md'}

@@ -22,6 +22,7 @@
 /* ── Body & Background ── */
 body {
   background: #0a0a0f;
+  overflow-x: hidden;
 }
 
 /* ── Glass Utilities ── */
@@ -116,4 +117,39 @@ body {
 .markdown-content strong {
   color: #00FF94;
   font-weight: 600;
+}
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4 {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+.markdown-content pre {
+  overflow-x: auto;
+  max-width: 100%;
+  white-space: pre;
+  font-size: 0.75rem;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 10px;
+}
+.markdown-content code {
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-size: 0.75rem;
+}
+.markdown-content pre code {
+  white-space: pre;
+  word-break: normal;
+}
+.markdown-content blockquote {
+  overflow-wrap: break-word;
+  word-break: break-word;
+  max-width: 100%;
+  border-left: 3px solid rgba(0, 255, 148, 0.4);
+  padding-left: 0.75rem;
+  color: #A1A1AA;
+  font-style: italic;
 }

@@ -60,7 +60,8 @@ const DebriefingModal: React.FC<{
   dayName: string;
   onClose: () => void;
   onSendToChat: (text: string) => void;
-}> = ({ dayName, onClose, onSendToChat }) => {
+  onSave?: (text: string) => void;
+}> = ({ dayName, onClose, onSendToChat, onSave }) => {
   const [transcript, setTranscript] = useState("");
   const [sent, setSent] = useState(false);
 
@@ -70,7 +71,9 @@ const DebriefingModal: React.FC<{
 
   const handleSend = () => {
     if (!transcript.trim()) return;
-    const message = `📋 Debrief pós-treino (${dayName}): ${transcript.trim()}`;
+    const trimmed = transcript.trim();
+    onSave?.(trimmed);
+    const message = `📋 Debrief pós-treino (${dayName}): ${trimmed}`;
     onSendToChat(message);
     logEvent({ name: "voice_input_used", context: "debriefing" });
     setSent(true);
@@ -747,7 +750,7 @@ export const WorkoutScreen: React.FC<WorkoutScreenProps> = ({
   const [viewingExercise, setViewingExercise] = useState<{ name: string; obs?: string } | null>(null);
   const [weekSummary, setWeekSummary] = useState<WeekSummary | null>(null);
   const [showGoalPopup, setShowGoalPopup] = useState(false);
-  const [debriefDay, setDebriefDay] = useState<string | null>(null);
+  const [debriefDay, setDebriefDay] = useState<{ dayName: string; wIdx: number; dIdx: number } | null>(null);
   const [dismissedPlateaus, setDismissedPlateaus] = useState<Set<string>>(new Set());
   const prevGoalRef = useRef(false);
 
@@ -858,6 +861,18 @@ export const WorkoutScreen: React.FC<WorkoutScreenProps> = ({
     });
   }, [onUpdateWeek]);
 
+  const updateDayNotes = useCallback((wIdx: number, dIdx: number, notes: string) => {
+    setDisplayWeeks((prev) => {
+      const next = prev.map((w, wi) => {
+        if (wi !== wIdx) return w;
+        const days = w.days.map((d, di) => di === dIdx ? { ...d, notes } : d);
+        return { ...w, days };
+      });
+      onUpdateWeek(next[wIdx]);
+      return next;
+    });
+  }, [onUpdateWeek]);
+
   const copyLastWorkout = useCallback((wIdx: number, dIdx: number) => {
     const dayName = displayWeeks[wIdx].days[dIdx].dayName;
     let found: Exercise[] = [];
@@ -926,11 +941,14 @@ export const WorkoutScreen: React.FC<WorkoutScreenProps> = ({
 
       {debriefDay && (
         <DebriefingModal
-          dayName={debriefDay}
+          dayName={debriefDay.dayName}
           onClose={() => setDebriefDay(null)}
           onSendToChat={(text) => {
             onNavigateToChat?.(text);
             setDebriefDay(null);
+          }}
+          onSave={(text) => {
+            updateDayNotes(debriefDay.wIdx, debriefDay.dIdx, text);
           }}
         />
       )}
@@ -1197,6 +1215,7 @@ export const WorkoutScreen: React.FC<WorkoutScreenProps> = ({
                                     {day.dayName}
                                   </p>
                                   {isToday && <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-bold">HOJE</span>}
+                                  {day.notes && <span className="text-[9px] text-gray-500" title={day.notes}>📝</span>}
                                 </div>
                                 <p className="text-[10px] text-gray-500">
                                   {new Date(day.date + "T12:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
@@ -1215,10 +1234,10 @@ export const WorkoutScreen: React.FC<WorkoutScreenProps> = ({
                                 </button>
                                 {hasEx && (
                                   <button
-                                    onClick={() => setDebriefDay(day.dayName)}
+                                    onClick={() => setDebriefDay({ dayName: day.dayName, wIdx, dIdx })}
                                     className="text-xs flex items-center gap-1 text-gray-500 hover:text-primary transition-colors"
                                   >
-                                    <Zap size={11} /> Debrief
+                                    <Zap size={11} /> Debrief{day.notes ? " ✏️" : ""}
                                   </button>
                                 )}
                               </div>
@@ -1231,6 +1250,12 @@ export const WorkoutScreen: React.FC<WorkoutScreenProps> = ({
                                 className="w-full mt-1 py-2.5 border border-dashed border-white/15 rounded-xl text-gray-500 hover:text-primary hover:border-primary/40 text-xs flex items-center justify-center gap-1.5 transition-all">
                                 <Plus size={13} /> Adicionar Exercício
                               </button>
+                              {day.notes && (
+                                <div className="mt-2 p-3 bg-primary/5 border border-primary/20 rounded-xl animate-fadeIn">
+                                  <p className="text-[10px] uppercase tracking-wider text-primary/60 font-bold mb-1">📝 Debrief</p>
+                                  <p className="text-xs text-gray-300 leading-relaxed">{day.notes}</p>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>

@@ -600,6 +600,21 @@ function NutriTab({
     };
   }, [aiDay]);
 
+  // Goals from AI plan totals (all items, regardless of isConsumed), fallback to store defaults
+  const aiGoals = useMemo(() => {
+    if (!aiDay) return null;
+    const all = aiDay.meals.flatMap((m) => m.items);
+    if (!all.length) return null;
+    return {
+      calories: Math.round(all.reduce((s, i) => s + (Number(i.calories) || 0), 0)),
+      protein:  Math.round(all.reduce((s, i) => s + (Number(i.protein)  || 0), 0)),
+      carbs:    Math.round(all.reduce((s, i) => s + (Number(i.carbs)    || 0), 0)),
+      fat:      Math.round(all.reduce((s, i) => s + (Number(i.fat)      || 0), 0)),
+    };
+  }, [aiDay]);
+
+  const ringGoals = aiGoals ?? goals;
+
   // Combined: AI checked items + manually logged meals
   const consumedTotals = {
     calories: aiConsumed.calories + manualTotals.calories,
@@ -649,10 +664,10 @@ function NutriTab({
       {/* Macro rings */}
       <div className="bg-surface rounded-2xl border border-[#1E1E2A] p-4">
         <div className="grid grid-cols-4 gap-2">
-          <MacroRing label="Calorias" consumed={consumedTotals.calories} goal={goals.calories} unit="kcal" />
-          <MacroRing label="Proteína" consumed={consumedTotals.protein}  goal={goals.protein}  unit="g"    />
-          <MacroRing label="Carbos"   consumed={consumedTotals.carbs}    goal={goals.carbs}    unit="g"    />
-          <MacroRing label="Gordura"  consumed={consumedTotals.fat}      goal={goals.fat}      unit="g"    />
+          <MacroRing label="Calorias" consumed={consumedTotals.calories} goal={ringGoals.calories} unit="kcal" />
+          <MacroRing label="Proteína" consumed={consumedTotals.protein}  goal={ringGoals.protein}  unit="g"    />
+          <MacroRing label="Carbos"   consumed={consumedTotals.carbs}    goal={ringGoals.carbs}    unit="g"    />
+          <MacroRing label="Gordura"  consumed={consumedTotals.fat}      goal={ringGoals.fat}      unit="g"    />
         </div>
       </div>
 

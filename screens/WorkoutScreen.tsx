@@ -487,14 +487,30 @@ const ExerciseRow: React.FC<{
 
       {/* Metrics */}
       <div className="grid grid-cols-3 gap-2">
+        {/* Carga — input livre */}
+        <div className="bg-background rounded-lg p-2 text-center">
+          <p className="text-[9px] uppercase tracking-widest text-gray-600 mb-1">Carga (kg)</p>
+          <input
+            type="number"
+            inputMode="decimal"
+            step="0.5"
+            min="0"
+            max="999"
+            placeholder="0"
+            value={ex.weight}
+            onChange={(e) => onUpdate(wIdx, dIdx, exIdx, "weight", e.target.value)}
+            onBlur={(e) => { if (!e.target.value) onUpdate(wIdx, dIdx, exIdx, "weight", "0"); }}
+            className="w-full bg-transparent text-primary text-sm font-mono text-center focus:outline-none focus:text-primary"
+          />
+        </div>
+        {/* Reps e Séries — select */}
         {[
-          { label: "Carga (kg)", field: "weight" as keyof Exercise, opts: WEIGHT_OPTIONS, color: "text-primary" },
-          { label: "Reps", field: "reps" as keyof Exercise, opts: REP_OPTIONS, color: "text-white" },
-          { label: "Séries", field: "sets" as keyof Exercise, opts: SET_OPTIONS, color: "text-white" },
-        ].map(({ label, field, opts, color }) => (
+          { label: "Reps", field: "reps" as keyof Exercise, opts: REP_OPTIONS },
+          { label: "Séries", field: "sets" as keyof Exercise, opts: SET_OPTIONS },
+        ].map(({ label, field, opts }) => (
           <div key={field} className="bg-background rounded-lg p-2 text-center">
             <p className="text-[9px] uppercase tracking-widest text-gray-600 mb-1">{label}</p>
-            <select className={`w-full bg-transparent ${color} text-sm font-mono text-center focus:outline-none appearance-none cursor-pointer`}
+            <select className="w-full bg-transparent text-white text-sm font-mono text-center focus:outline-none appearance-none cursor-pointer"
               value={ex[field]} onChange={(e) => onUpdate(wIdx, dIdx, exIdx, field, e.target.value)}>
               <option value="" className="bg-surface text-gray-500">—</option>
               {opts.map((o) => <option key={o} value={o} className="bg-surface">{o}</option>)}
@@ -955,11 +971,6 @@ export const WorkoutScreen: React.FC<WorkoutScreenProps> = ({
               <div className="flex items-center gap-1.5">
                 {weekSummary?.goalReached && <Crown size={12} className="text-primary" />}
                 <span className="text-xs font-bold text-primary">{trainedCount}/{weeklyGoal} dias</span>
-                {weekSummary && (
-                  <button onClick={() => setShowGoalPopup(true)} className="ml-1 text-gray-600 hover:text-primary transition-colors">
-                    <Instagram size={12} />
-                  </button>
-                )}
               </div>
             </div>
             <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
@@ -1053,6 +1064,22 @@ export const WorkoutScreen: React.FC<WorkoutScreenProps> = ({
                 className="w-full bg-surface border border-white/5 rounded-2xl py-3.5 pl-11 pr-10 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-primary/30 transition-all" />
               {searchTerm && <button onClick={() => { setSearchTerm(""); setSelectedExercise(null); }} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"><X size={16} /></button>}
             </div>
+
+            {/* ── Instagram share banner ── */}
+            {weekSummary && !searchTerm && !selectedExercise && (
+              <button
+                onClick={() => setShowGoalPopup(true)}
+                className="w-full flex items-center justify-center gap-3 py-3.5 px-5 rounded-2xl text-white font-medium text-sm active:scale-[0.98] transition-transform"
+                style={{ background: "linear-gradient(135deg, #833AB4 0%, #E1306C 50%, #F77737 100%)" }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="2" width="20" height="20" rx="5"/>
+                  <circle cx="12" cy="12" r="5"/>
+                  <circle cx="17.5" cy="6.5" r="1.5" fill="currentColor" stroke="none"/>
+                </svg>
+                Compartilhar progresso da semana
+              </button>
+            )}
 
             {/* ── Exercise progress chart ── */}
             {selectedExercise ? (

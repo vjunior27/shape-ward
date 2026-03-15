@@ -5,6 +5,7 @@ import {
   TrendingUp, X, PlayCircle, Zap, Home,
 } from "lucide-react";
 import { AIWorkoutDisplay, DailyWorkout, Exercise, WeeklyWorkoutPlan, WeekSummary } from "../types";
+import { useStreakStore } from "../stores/useStreakStore";
 import { useSpeechInput } from "../hooks/useSpeechInput";
 import { formatParsedFeedback, parseSpeechToExercise } from "../utils/parseSpeechToExercise";
 
@@ -224,23 +225,35 @@ const WEEK_DAY_TRACKER = [
   { abbr3: "Dom", full: "Domingo" },
 ];
 
+const ECG_PATH = "M-72 0 L-40 0 C-38 0 -38 -20 -36 -20 L-30 -20 C-28 -20 -28 0 -26 0 L-22 0 C-20 0 -20 -18 -18 -18 C-16 -18 -16 -10 -14 -10 C-12 -10 -14 -18 -12 -18 C-10 -18 -10 0 -8 0 L-4 0 C-2 0 0 -24 2 -24 C4 -24 6 0 8 0 C8 -8 8 -12 10 -12 L12 0 L16 0 C18 0 18 -18 20 -18 C22 -18 22 0 22 0 L26 0 C28 0 28 -18 30 -18 C32 -18 32 -8 34 -8 C36 -8 34 -18 36 -18 C38 -18 38 0 40 0 L72 0";
+
+// Single-letter day labels in Mon→Sun order matching WEEK_DAY_TRACKER
+const WEEK_SINGLE_LABELS = ["S", "T", "Q", "Q", "S", "S", "D"];
+
 const GoalPopup: React.FC<{ summary: WeekSummary; userName: string; onClose: () => void }> = ({
   summary, userName, onClose,
 }) => {
   const stickerRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
+  const streakDays = useStreakStore((s) => s.currentStreak);
+
+  // Build weekDays array: 7 days Mon→Sun
+  const weekDays = WEEK_DAY_TRACKER.map(({ full }, i) => ({
+    label: WEEK_SINGLE_LABELS[i],
+    trained: summary.trainedDays.includes(full),
+  }));
 
   /** Captures stickerRef via html2canvas and returns a PNG Blob. */
   const captureSticker = async (): Promise<Blob | null> => {
     if (!stickerRef.current) return null;
     const html2canvas = (await import("html2canvas")).default;
     const canvas = await html2canvas(stickerRef.current, {
-      backgroundColor: null,   // transparent — rounded corners become see-through
-      scale: 4,                // 4× for crisp Retina rendering when pinch-zoomed in Stories
-      useCORS: true,           // allows cross-origin images (e.g. avatar URLs)
+      backgroundColor: null,
+      scale: 4,
+      useCORS: true,
       logging: false,
-      removeContainer: true,   // removes the temporary off-screen container after capture
+      removeContainer: true,
     });
     return new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/png"));
   };
@@ -253,7 +266,7 @@ const GoalPopup: React.FC<{ summary: WeekSummary; userName: string; onClose: () 
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `trainova-semana-${summary.weekNumber}.png`;
+      a.download = `trainova-streak-${streakDays}d.png`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (e) {
@@ -268,12 +281,10 @@ const GoalPopup: React.FC<{ summary: WeekSummary; userName: string; onClose: () 
     try {
       const blob = await captureSticker();
       if (!blob) return;
-      const file = new File([blob], `trainova-semana-${summary.weekNumber}.png`, { type: "image/png" });
+      const file = new File([blob], `trainova-streak-${streakDays}d.png`, { type: "image/png" });
       if (navigator.canShare?.({ files: [file] })) {
-        // Mobile: opens native share sheet (Instagram, WhatsApp, etc.)
-        await navigator.share({ files: [file], title: `Trainova — Semana ${summary.weekNumber}` });
+        await navigator.share({ files: [file], title: `${streakDays} dias de streak no Trainova!` });
       } else {
-        // Desktop fallback: download the sticker
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -288,86 +299,101 @@ const GoalPopup: React.FC<{ summary: WeekSummary; userName: string; onClose: () 
     }
   };
 
-  const avatarLetter = userName.trim().charAt(0).toUpperCase() || "?";
   const busy = isDownloading || isSharing;
 
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
       <div className="bg-[#111318] border border-primary/40 w-full max-w-sm rounded-3xl shadow-[0_0_60px_rgba(0,255,148,0.25)] overflow-hidden">
 
-        {/* ── STICKER CONTENT — only this div is captured by html2canvas ── */}
-        {/* Outer centering wrapper gives the badge compact proportions */}
+        {/* ── STICKER — captured by html2canvas at scale 4 ── */}
         <div className="flex justify-center pt-6 pb-4 px-5">
-          <div
-            ref={stickerRef}
-            style={{
-              background: "#111318",
-              borderRadius: 18,
-              border: "1px solid rgba(0,255,148,0.18)",
-              padding: "18px 18px 14px",
-              width: 300,
-            }}
-          >
-            {/* 🔥 Title */}
-            <p className="text-center font-display font-black tracking-widest text-white mb-0.5"
-               style={{ fontSize: "1.05rem", letterSpacing: "0.11em" }}>
-              🔥 RESUMO SEMANAL
-            </p>
-            <p className="text-center text-[11px] mb-4" style={{ color: "#6b7280" }}>
-              Week {summary.weekNumber} · {summary.year}
-            </p>
+          <div ref={stickerRef} style={{ width: 300, lineHeight: 1 }}>
+            <svg
+              viewBox="0 0 600 700"
+              xmlns="http://www.w3.org/2000/svg"
+              style={{ display: "block", width: 300, height: 350 }}
+            >
+              {/* Background */}
+              <rect width="600" height="700" rx="48" fill="#0a0a0f"
+                stroke="#00FF94" strokeWidth="1.2" strokeOpacity="0.25"/>
 
-            {/* Avatar + name */}
-            <div className="flex items-center justify-center gap-2 mb-3">
-              <div style={{
-                width: 26, height: 26, borderRadius: "50%",
-                background: "rgba(0,255,148,0.15)", border: "1.5px solid rgba(0,255,148,0.4)",
-                color: "#00ff94", display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 11, fontWeight: "bold", flexShrink: 0,
-              }}>
-                {avatarLetter}
-              </div>
-              <span className="font-semibold text-sm text-white">{userName}</span>
-            </div>
+              {/* Trainova logo — barbell + ECG */}
+              <g transform="translate(300, 76) scale(0.38)">
+                <rect x="-108" y="-36" width="16" height="72" rx="5"
+                  fill="#12121a" stroke="#00FF94" strokeWidth="4"/>
+                <rect x="-88" y="-26" width="12" height="52" rx="4"
+                  fill="#12121a" stroke="#00FF94" strokeWidth="4"/>
+                <path d={ECG_PATH} fill="none" stroke="#00FF94"
+                  strokeWidth="6" strokeLinecap="round" strokeLinejoin="round"/>
+                <rect x="76" y="-26" width="12" height="52" rx="4"
+                  fill="#12121a" stroke="#00FF94" strokeWidth="4"/>
+                <rect x="92" y="-36" width="16" height="72" rx="5"
+                  fill="#12121a" stroke="#00FF94" strokeWidth="4"/>
+              </g>
 
-            {/* Days count */}
-            <div className="text-center mb-4">
-              <span style={{ color: "#00ff94", fontWeight: 900, fontSize: "2rem", lineHeight: 1 }}>
-                {summary.trainedDays.length}
-              </span>
-              <span className="text-sm ml-1.5" style={{ color: "#9ca3af" }}>
-                {summary.trainedDays.length === 1 ? "dia treinado" : "dias treinados"}
-              </span>
-              {summary.goalReached && <span className="ml-1.5">👑</span>}
-            </div>
+              {/* Wordmark */}
+              <text x="300" y="200" textAnchor="middle"
+                fontFamily="'SF Pro Display','Helvetica Neue',Arial,sans-serif"
+                fontSize="22" fontWeight="500" fill="#00FF94" letterSpacing="3.5">
+                TRAINOVA
+              </text>
 
-            {/* Day tracker — Seg Ter Qua Qui Sex Sáb Dom */}
-            <div className="flex justify-center gap-[5px] mb-4">
-              {WEEK_DAY_TRACKER.map(({ abbr3, full }) => {
-                const trained = summary.trainedDays.includes(full);
+              {/* Separator */}
+              <line x1="160" y1="224" x2="440" y2="224" stroke="#1E1E2A" strokeWidth="1"/>
+
+              {/* Flame — outer */}
+              <path d="M276 274 C276 258 284 246 292 238 C286 246 284 256 284 262 C284 274 292 282 300 282 C308 282 316 274 316 262 C316 256 314 246 308 238 C316 246 324 258 324 274 C324 290 314 302 300 302 C286 302 276 290 276 274Z"
+                fill="#F97316" opacity="0.9"/>
+              {/* Flame — inner */}
+              <path d="M288 278 C288 270 292 262 296 258 C294 264 294 268 294 272 C294 278 298 282 300 282 C302 282 306 278 306 272 C306 268 306 264 304 258 C308 262 312 270 312 278 C312 286 306 292 300 292 C294 292 288 286 288 278Z"
+                fill="#FBBF24" opacity="0.85"/>
+
+              {/* Streak number */}
+              <text x="300" y="410" textAnchor="middle"
+                fontFamily="'SF Pro Display','Helvetica Neue',Arial,sans-serif"
+                fontSize="144" fontWeight="500" fill="#FAFAFA">
+                {streakDays}
+              </text>
+              <text x="300" y="456" textAnchor="middle"
+                fontFamily="'SF Pro Display','Helvetica Neue',Arial,sans-serif"
+                fontSize="28" fill="#A1A1AA" letterSpacing="2">
+                dias em streak
+              </text>
+
+              {/* Separator */}
+              <line x1="120" y1="488" x2="480" y2="488" stroke="#1E1E2A" strokeWidth="1"/>
+
+              {/* Week day squares */}
+              {weekDays.map((day, i) => {
+                const x = 87 + i * 62;
                 return (
-                  <div key={full} style={{
-                    width: 36, height: 44, borderRadius: 8, flexShrink: 0,
-                    background: trained ? "#00ff94" : "rgba(255,255,255,0.06)",
-                    boxShadow: trained ? "0 0 9px rgba(0,255,148,0.45)" : "none",
-                    display: "flex", flexDirection: "column",
-                    alignItems: "center", justifyContent: "center", gap: 2,
-                  }}>
-                    <span style={{ color: trained ? "#000" : "#4b5563", fontSize: 10, fontWeight: "bold", lineHeight: 1 }}>
-                      {abbr3}
-                    </span>
-                    <span style={{ color: trained ? "#000" : "#374151", fontSize: 10, lineHeight: 1 }}>
-                      {trained ? "✓" : "·"}
-                    </span>
-                  </div>
+                  <g key={i}>
+                    <rect x={x} y="512" width="52" height="52" rx="12"
+                      fill={day.trained ? '#00FF94' : '#1E1E2A'}/>
+                    <text x={x + 26} y="545" textAnchor="middle"
+                      fontFamily="'SF Pro Display','Helvetica Neue',Arial,sans-serif"
+                      fontSize="20" fontWeight={day.trained ? "500" : "400"}
+                      fill={day.trained ? '#0a0a0f' : '#52525B'}>
+                      {day.label}
+                    </text>
+                  </g>
                 );
               })}
-            </div>
 
-            {/* Watermark */}
-            <p className="text-center" style={{ color: "rgba(0,255,148,0.3)", fontSize: 8, fontWeight: "bold", letterSpacing: "0.35em" }}>
-              ◆ TRAINOVA ◆
-            </p>
+              {/* User name */}
+              <text x="300" y="610" textAnchor="middle"
+                fontFamily="'SF Pro Display','Helvetica Neue',Arial,sans-serif"
+                fontSize="20" fill="#52525B" letterSpacing="1">
+                {userName}
+              </text>
+
+              {/* App link */}
+              <text x="300" y="640" textAnchor="middle"
+                fontFamily="'SF Pro Display','Helvetica Neue',Arial,sans-serif"
+                fontSize="18" fill="#3f3f46" letterSpacing="0.5">
+                trainova.app
+              </text>
+            </svg>
           </div>
         </div>
 

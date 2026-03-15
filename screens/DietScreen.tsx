@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { WeeklyDietPlan, DailyDiet, DietMeal, NutritionMeal } from '../types';
 import {
-  Check, Plus, Trash2, Utensils, BrainCircuit, History,
-  ChevronDown, ChevronRight, Calendar, Clock, Edit2, Flame, X,
+  Check, Plus, Trash2, Utensils, Clock, X,
   Search, Droplets, Pencil, Undo2, ChevronLeft, ChevronRight as ChevronRightIcon,
 } from 'lucide-react';
 import { useNutritionStore } from '../stores/useNutritionStore';
@@ -556,7 +555,6 @@ function NutriTab({
   const { goals } = useNutritionStore();
   const userId = useUserStore((s) => s.user?.uid) ?? '';
 
-  // Date selector for logging
   const [dateOffset, setDateOffset] = useState(0);
   const [addingMealType, setAddingMealType] = useState<NutritionMeal['type'] | null>(null);
 
@@ -576,39 +574,54 @@ function NutriTab({
     return `${weekdays[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]}`;
   })();
 
+  // Find AI plan day that matches the selected date
+  const aiPlanEntry = dietHistory
+    .flatMap((p) => p.days.map((day) => ({ planId: p.id as 'current' | 'last', day })))
+    .find((e) => e.day.date === targetDate);
+  const aiDay = aiPlanEntry?.day ?? null;
+  const aiPlanId = aiPlanEntry?.planId ?? 'current';
+
+  // Map a DietMeal to a section type based on name/time heuristic
+  const aiMealSectionType = (meal: DietMeal): NutritionMeal['type'] => {
+    const n = meal.name.toLowerCase();
+    if (n.includes('café') || n.includes('manhã') || n.includes('despertar') ||
+        n.includes('matinal') || n.includes('pré-treino') || n.includes('pre-treino')) return 'breakfast';
+    if (n.includes('almoço') || n.includes('pós-treino') || n.includes('pos-treino')) return 'lunch';
+    if (n.includes('jantar') || n.includes('ceia') || n.includes('noturno')) return 'dinner';
+    // Time-based fallback
+    const hour = parseInt(meal.time.split(':')[0] ?? '12', 10);
+    if (hour < 10) return 'breakfast';
+    if (hour < 15) return 'lunch';
+    if (hour < 20) return 'dinner';
+    return 'snack';
+  };
+
+  const aiMealsForSection = (type: NutritionMeal['type']): DietMeal[] =>
+    aiDay?.meals.filter((m) => aiMealSectionType(m) === type) ?? [];
+
+  const manualMealsForSection = (type: NutritionMeal['type']) =>
+    (dailyNutrition?.meals ?? []).filter((m) => m.type === type);
+
+  const toggleAiItem = (mealId: string, itemIdx: number) => {
+    if (!aiDay) return;
+    const newMeals = aiDay.meals.map((m) => {
+      if (m.id !== mealId) return m;
+      return {
+        ...m,
+        items: m.items.map((item, j) =>
+          j === itemIdx ? { ...item, isConsumed: !item.isConsumed } : item
+        ),
+      };
+    });
+    onUpdateDietDay(aiPlanId, { ...aiDay, meals: newMeals });
+  };
+
   const MEAL_SECTIONS: { type: NutritionMeal['type']; label: string }[] = [
     { type: 'breakfast', label: 'Café da Manhã' },
     { type: 'lunch',     label: 'Almoço' },
     { type: 'dinner',    label: 'Jantar' },
     { type: 'snack',     label: 'Lanche' },
   ];
-
-  const mealsOfType = (type: NutritionMeal['type']) =>
-    (dailyNutrition?.meals ?? []).filter((m) => m.type === type);
-
-  // AI weekly plan (collapsible)
-  const [showPlano, setShowPlano] = useState(false);
-  const [planoTab, setPlanoTab] = useState<'current' | 'last'>('current');
-  const [expandedDay, setExpandedDay] = useState<number | null>(new Date().getDay());
-
-  const activePlan = dietHistory.find((d) => d.id === planoTab);
-  const days = activePlan?.days || [];
-
-  const toggleItem = (dayIndex: number, mealIndex: number, itemIndex: number) => {
-    const day = days[dayIndex];
-    const newMeals = [...day.meals];
-    newMeals[mealIndex].items[itemIndex].isConsumed = !newMeals[mealIndex].items[itemIndex].isConsumed;
-    onUpdateDietDay(planoTab, { ...day, meals: newMeals });
-  };
-
-  const calculateProgress = (meals: DietMeal[]) => {
-    let total = 0, consumed = 0;
-    meals.forEach((m) => m.items.forEach((i) => { total++; if (i.isConsumed) consumed++; }));
-    return total === 0 ? 0 : (consumed / total) * 100;
-  };
-
-  const calculateDayCal = (meals: DietMeal[]) =>
-    meals.reduce((s, m) => s + m.items.reduce((ss, i) => ss + (i.calories ?? 0), 0), 0);
 
   return (
     <div className="space-y-4">
@@ -642,8 +655,11 @@ function NutriTab({
 
       {/* Meal sections */}
       {MEAL_SECTIONS.map(({ type, label }) => {
-        const meals = mealsOfType(type);
-        const sectionCals = meals.reduce((s, m) => s + m.totalCalories, 0);
+        const aiMeals = aiMealsForSection(type);
+        const manualMeals = manualMealsForSection(type);
+        const aiCals = aiMeals.flatMap((m) => m.items).reduce((s, i) => s + (i.calories ?? 0), 0);
+        const manualCals = manualMeals.reduce((s, m) => s + m.totalCalories, 0);
+        const sectionCals = aiCals + manualCals;
 
         return (
           <div key={type} className="bg-surface rounded-2xl border border-[#1E1E2A] overflow-hidden">
@@ -651,11 +667,48 @@ function NutriTab({
               <p className="text-white font-semibold text-sm">{label}</p>
               {sectionCals > 0 && <p className="text-primary text-xs font-bold">{sectionCals} kcal</p>}
             </div>
-            {meals.length > 0 && (
-              <div className="divide-y divide-[#1E1E2A]">
-                {meals.map((meal) =>
+
+            {/* AI plan items */}
+            {aiMeals.map((meal) => (
+              <div key={meal.id}>
+                <div className="flex items-center gap-2 px-4 py-1.5 bg-[#0f0f1a]">
+                  <Clock size={10} className="text-primary shrink-0" />
+                  <span className="text-primary text-[10px] font-bold">{meal.time}</span>
+                  <span className="text-[#A1A1AA] text-[10px] truncate">{meal.name}</span>
+                </div>
+                {meal.items.map((item, iIdx) => (
+                  <div
+                    key={item.id}
+                    className={`flex items-center gap-3 px-4 py-2.5 border-t border-[#1E1E2A] ${item.isConsumed ? 'opacity-50' : ''}`}
+                  >
+                    <button
+                      onClick={() => toggleAiItem(meal.id, iIdx)}
+                      className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                        item.isConsumed ? 'bg-primary border-primary text-black' : 'border-[#52525B] hover:border-primary'
+                      }`}
+                    >
+                      {item.isConsumed && <Check size={10} strokeWidth={3} />}
+                    </button>
+                    <span className={`flex-1 text-sm ${item.isConsumed ? 'line-through text-[#52525B]' : 'text-white'}`}>
+                      {item.name}
+                    </span>
+                    <span className="text-xs text-[#52525B] shrink-0">{item.quantity}</span>
+                    {item.calories != null && (
+                      <span className={`text-xs font-semibold shrink-0 ${item.isConsumed ? 'text-[#3f3f46]' : 'text-primary/70'}`}>
+                        {item.calories} kcal
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ))}
+
+            {/* Manual food entries */}
+            {manualMeals.length > 0 && (
+              <div className={aiMeals.length > 0 ? 'border-t border-[#1E1E2A]' : ''}>
+                {manualMeals.map((meal) =>
                   meal.entries.map((entry) => (
-                    <div key={entry.id} className="flex items-center justify-between px-4 py-2.5">
+                    <div key={entry.id} className="flex items-center justify-between px-4 py-2.5 border-t border-[#1E1E2A] first:border-t-0">
                       <div>
                         <p className="text-white text-sm">{entry.foodName}</p>
                         <p className="text-[#52525B] text-xs">{entry.quantity}{entry.servingUnit} · P:{Math.round(entry.protein)}g</p>
@@ -666,119 +719,16 @@ function NutriTab({
                 )}
               </div>
             )}
+
             <button
               onClick={() => setAddingMealType(type)}
-              className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs text-[#A1A1AA] hover:text-primary transition-colors"
+              className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs text-[#A1A1AA] hover:text-primary transition-colors border-t border-[#1E1E2A]"
             >
               <Plus size={13} /> Adicionar
             </button>
           </div>
         );
       })}
-
-      {/* Collapsible AI plan */}
-      <div className="bg-surface rounded-2xl border border-[#1E1E2A] overflow-hidden">
-        <button
-          onClick={() => setShowPlano((v) => !v)}
-          className="w-full flex items-center justify-between px-4 py-4"
-        >
-          <div className="flex items-center gap-2">
-            <BrainCircuit size={16} className="text-primary" />
-            <p className="text-white font-semibold text-sm">Plano Semanal da IA</p>
-          </div>
-          {showPlano ? <ChevronDown size={16} className="text-primary" /> : <ChevronRight size={16} className="text-[#A1A1AA]" />}
-        </button>
-
-        {showPlano && (
-          <div className="border-t border-[#1E1E2A] animate-fadeIn">
-            {/* Sub-tabs */}
-            <div className="flex px-4 pt-3 gap-4 border-b border-white/5">
-              {(['current', 'last'] as const).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setPlanoTab(tab)}
-                  className={`flex-1 pb-3 text-sm font-medium border-b-2 transition-colors ${planoTab === tab ? 'border-primary text-white' : 'border-transparent text-gray-500'}`}
-                >
-                  {tab === 'current' ? 'Esta Semana' : 'Semana Passada'}
-                </button>
-              ))}
-            </div>
-
-            <div className="p-3 space-y-2">
-              {days.length === 0 ? (
-                <div className="flex flex-col items-center py-8 text-center">
-                  <BrainCircuit size={28} className="text-gray-600 mb-2" />
-                  <p className="text-gray-400 text-sm">Nenhum plano para {planoTab === 'current' ? 'esta semana' : 'a semana passada'}.</p>
-                  {planoTab === 'current' && <p className="text-xs text-primary mt-1">Peça ao Coach para gerar sua dieta.</p>}
-                </div>
-              ) : (
-                days.map((day, dayIndex) => {
-                  const isExpanded = expandedDay === dayIndex;
-                  const progress = calculateProgress(day.meals);
-                  const isToday = new Date().toISOString().split('T')[0] === day.date;
-                  const dayCal = calculateDayCal(day.meals);
-
-                  return (
-                    <div key={day.date} className={`rounded-xl border transition-all ${isExpanded ? 'border-primary/40' : 'border-white/5'}`}>
-                      <button onClick={() => setExpandedDay(isExpanded ? null : dayIndex)} className="w-full flex flex-col p-3">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-2">
-                            <div className={`p-1.5 rounded-lg ${isToday ? 'bg-primary text-black' : 'bg-white/5 text-gray-400'}`}>
-                              <Calendar size={14} />
-                            </div>
-                            <span className={`font-semibold text-sm ${isToday ? 'text-primary' : 'text-white'}`}>{day.dayName}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {dayCal > 0 && <span className="text-xs font-bold text-primary">{dayCal} kcal</span>}
-                            <span className="text-xs text-gray-400">{Math.round(progress)}%</span>
-                            {isExpanded ? <ChevronDown size={14} className="text-primary" /> : <ChevronRight size={14} className="text-gray-500" />}
-                          </div>
-                        </div>
-                        <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
-                          <div className="h-full bg-gradient-to-r from-primary to-primaryDark transition-all duration-500" style={{ width: `${progress}%` }} />
-                        </div>
-                      </button>
-
-                      {isExpanded && (
-                        <div className="px-3 pb-3 space-y-2 border-t border-white/5 pt-2 animate-fadeIn">
-                          {day.meals.map((meal, mIdx) => (
-                            <div key={meal.id} className="bg-surface/50 rounded-lg p-2.5">
-                              <div className="flex items-center gap-2 mb-1.5">
-                                <div className="flex items-center gap-1 text-primary text-[10px] font-bold bg-primary/10 px-2 py-0.5 rounded">
-                                  <Clock size={9} />
-                                  <span>{meal.time}</span>
-                                </div>
-                                <span className="text-white text-xs font-semibold">{meal.name}</span>
-                              </div>
-                              <div className="space-y-1">
-                                {meal.items.map((item, iIdx) => (
-                                  <div key={item.id} className={`flex items-center gap-2 ${item.isConsumed ? 'opacity-50' : ''}`}>
-                                    <button
-                                      onClick={() => toggleItem(dayIndex, mIdx, iIdx)}
-                                      className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${item.isConsumed ? 'bg-primary border-primary text-black' : 'border-gray-600 hover:border-primary'}`}
-                                    >
-                                      {item.isConsumed && <Check size={10} strokeWidth={3} />}
-                                    </button>
-                                    <span className={`flex-1 text-xs ${item.isConsumed ? 'line-through text-gray-500' : 'text-gray-300'}`}>{item.name}</span>
-                                    <span className="text-xs text-gray-500">{item.quantity}</span>
-                                    {item.calories != null && (
-                                      <span className={`text-xs font-semibold shrink-0 ${item.isConsumed ? 'text-gray-600' : 'text-primary/70'}`}>{item.calories} kcal</span>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        )}
-      </div>
 
       {addingMealType && userId && (
         <AddFoodModal

@@ -30,6 +30,12 @@ export async function getDailyNutrition(
   date: string,
   goals: { calories: number; protein: number; carbs: number; fat: number; water: number }
 ): Promise<DailyNutritionSummary> {
+  const minDate = new Date();
+  minDate.setDate(minDate.getDate() - 13);
+  minDate.setHours(0, 0, 0, 0);
+  if (new Date(date + 'T00:00:00') < minDate) {
+    return { date, meals: [], totals: { calories: 0, protein: 0, carbs: 0, fat: 0, water: 0 }, goals };
+  }
   const meals = await getMealsByDate(userId, date);
   const totals = meals.reduce(
     (acc, m) => ({

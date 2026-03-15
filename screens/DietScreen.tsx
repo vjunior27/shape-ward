@@ -555,6 +555,7 @@ function NutriTab({
   const { goals } = useNutritionStore();
   const userId = useUserStore((s) => s.user?.uid) ?? '';
 
+  const MIN_OFFSET = -13; // 14 days including today
   const [dateOffset, setDateOffset] = useState(0);
   const [showAddFood, setShowAddFood] = useState(false);
 
@@ -603,8 +604,9 @@ function NutriTab({
       {/* Date selector */}
       <div className="flex items-center justify-between bg-surface rounded-2xl px-4 py-3 border border-[#1E1E2A]">
         <button
-          onClick={() => setDateOffset((o) => o - 1)}
-          className="p-1.5 rounded-lg text-[#A1A1AA] hover:text-white transition-colors"
+          onClick={() => setDateOffset((o) => Math.max(o - 1, MIN_OFFSET))}
+          disabled={dateOffset <= MIN_OFFSET}
+          className="p-1.5 rounded-lg text-[#A1A1AA] hover:text-white transition-colors disabled:opacity-30"
         >
           <ChevronLeft size={18} />
         </button>

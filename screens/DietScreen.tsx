@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { WeeklyDietPlan, DailyDiet, DietMeal, NutritionMeal } from '../types';
 import {
   Check, Plus, Trash2, Utensils, Clock, X,
@@ -24,10 +24,13 @@ function MacroRing({
 }: {
   label: string; consumed: number; goal: number; unit: string;
 }) {
-  const pct = Math.min((consumed / Math.max(goal, 1)) * 100, 100);
+  const rawPct = goal > 0 ? (consumed / goal) * 100 : 0;
+  const pct = Math.min(rawPct, 100);
+  const exceeded = rawPct > 100;
   const R = 28;
   const circ = 2 * Math.PI * R;
-  const dash = (pct / 100) * circ;
+  const offset = circ - (pct / 100) * circ;
+  const color = exceeded ? '#EF4444' : '#00FF94';
 
   return (
     <div className="flex flex-col items-center gap-1.5">
@@ -35,12 +38,15 @@ function MacroRing({
         <svg viewBox="0 0 72 72" className="w-full h-full -rotate-90">
           <circle cx="36" cy="36" r={R} fill="none" stroke="#1E1E2A" strokeWidth="6" />
           <circle
-            cx="36" cy="36" r={R} fill="none" stroke="#00FF94" strokeWidth="6"
-            strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
+            cx="36" cy="36" r={R} fill="none" stroke={color} strokeWidth="6"
+            strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+            style={{ transition: 'stroke-dashoffset 0.5s ease, stroke 0.3s ease' }}
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-white font-bold text-xs leading-none">{Math.round(consumed)}</span>
+          <span className={`font-bold text-xs leading-none ${exceeded ? 'text-red-400' : 'text-white'}`}>
+            {Math.round(consumed)}
+          </span>
           <span className="text-[#A1A1AA] text-[9px]">{unit}</span>
         </div>
       </div>
@@ -566,7 +572,7 @@ function NutriTab({
   })();
 
   const { data: dailyNutrition } = useDailyNutrition(targetDate);
-  const totals = dailyNutrition?.totals ?? { calories: 0, protein: 0, carbs: 0, fat: 0, water: 0 };
+  const manualTotals = dailyNutrition?.totals ?? { calories: 0, protein: 0, carbs: 0, fat: 0, water: 0 };
 
   const dateLabel = (() => {
     const d = new Date(targetDate + 'T12:00');
@@ -581,6 +587,26 @@ function NutriTab({
     .find((e) => e.day.date === targetDate);
   const aiDay = aiPlanEntry?.day ?? null;
   const aiPlanId = aiPlanEntry?.planId ?? 'current';
+
+  // Consumed from checked AI plan items (updates in real-time as user checks/unchecks)
+  const aiConsumed = useMemo(() => {
+    if (!aiDay) return { calories: 0, protein: 0, carbs: 0, fat: 0 };
+    const checked = aiDay.meals.flatMap((m) => m.items).filter((i) => i.isConsumed);
+    return {
+      calories: checked.reduce((s, i) => s + (Number(i.calories) || 0), 0),
+      protein:  checked.reduce((s, i) => s + (Number(i.protein)  || 0), 0),
+      carbs:    checked.reduce((s, i) => s + (Number(i.carbs)    || 0), 0),
+      fat:      checked.reduce((s, i) => s + (Number(i.fat)      || 0), 0),
+    };
+  }, [aiDay]);
+
+  // Combined: AI checked items + manually logged meals
+  const consumedTotals = {
+    calories: aiConsumed.calories + manualTotals.calories,
+    protein:  aiConsumed.protein  + manualTotals.protein,
+    carbs:    aiConsumed.carbs    + manualTotals.carbs,
+    fat:      aiConsumed.fat      + manualTotals.fat,
+  };
 
   const toggleAiItem = (mealId: string, itemIdx: number) => {
     if (!aiDay) return;
@@ -623,10 +649,10 @@ function NutriTab({
       {/* Macro rings */}
       <div className="bg-surface rounded-2xl border border-[#1E1E2A] p-4">
         <div className="grid grid-cols-4 gap-2">
-          <MacroRing label="Calorias" consumed={totals.calories} goal={goals.calories} unit="kcal" />
-          <MacroRing label="Proteína" consumed={totals.protein}  goal={goals.protein}  unit="g"    />
-          <MacroRing label="Carbos"   consumed={totals.carbs}    goal={goals.carbs}    unit="g"    />
-          <MacroRing label="Gordura"  consumed={totals.fat}      goal={goals.fat}      unit="g"    />
+          <MacroRing label="Calorias" consumed={consumedTotals.calories} goal={goals.calories} unit="kcal" />
+          <MacroRing label="Proteína" consumed={consumedTotals.protein}  goal={goals.protein}  unit="g"    />
+          <MacroRing label="Carbos"   consumed={consumedTotals.carbs}    goal={goals.carbs}    unit="g"    />
+          <MacroRing label="Gordura"  consumed={consumedTotals.fat}      goal={goals.fat}      unit="g"    />
         </div>
       </div>
 
@@ -666,7 +692,16 @@ function NutriTab({
                     <span className={`flex-1 text-sm ${item.isConsumed ? 'line-through text-[#52525B]' : 'text-white'}`}>
                       {item.name}
                     </span>
-                    <span className="text-xs text-[#52525B] shrink-0">{item.quantity}</span>
+                    <div className="text-right shrink-0">
+                      <p className="text-xs text-[#52525B]">{item.quantity}</p>
+                      {(item.protein != null || item.carbs != null || item.fat != null) && (
+                        <p className="text-[10px] text-[#3f3f46]">
+                          {item.protein != null ? `P:${item.protein}g ` : ''}
+                          {item.carbs != null ? `C:${item.carbs}g ` : ''}
+                          {item.fat != null ? `G:${item.fat}g` : ''}
+                        </p>
+                      )}
+                    </div>
                     {item.calories != null && (
                       <span className={`text-xs font-semibold shrink-0 ${item.isConsumed ? 'text-[#3f3f46]' : 'text-primary/70'}`}>
                         {item.calories} kcal

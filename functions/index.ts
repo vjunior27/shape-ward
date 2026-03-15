@@ -177,9 +177,12 @@ const TITAN_TOOLS = [
                       properties: {
                         name: { type: Type.STRING },
                         quantity: { type: Type.STRING, description: "Quantidade com unidade (ex: '150g', '1 unidade', '200ml')" },
-                        calories: { type: Type.NUMBER, description: "Calorias kcal por porção — OBRIGATÓRIO, sempre um número inteiro ≥ 0. Estime se necessário, nunca omita." },
+                        calories: { type: Type.NUMBER, description: "Calorias kcal por porção — OBRIGATÓRIO, número inteiro ≥ 0. Estime se necessário, nunca omita." },
+                        protein: { type: Type.NUMBER, description: "Proteínas em gramas por porção — OBRIGATÓRIO, número ≥ 0 com até 1 decimal. Estime se necessário." },
+                        carbs: { type: Type.NUMBER, description: "Carboidratos em gramas por porção — OBRIGATÓRIO, número ≥ 0 com até 1 decimal. Estime se necessário." },
+                        fat: { type: Type.NUMBER, description: "Gorduras em gramas por porção — OBRIGATÓRIO, número ≥ 0 com até 1 decimal. Estime se necessário." },
                       },
-                      required: ["name", "quantity", "calories"],
+                      required: ["name", "quantity", "calories", "protein", "carbs", "fat"],
                     },
                   },
                 },
@@ -241,13 +244,23 @@ async function executeFunctionCall(
             id: `meal_${i}_${mi}`,
             time: String(meal.time ?? "").slice(0, 10),
             name: sanitizeForPrompt(meal.name, 60),
-            items: (Array.isArray(meal.items) ? meal.items : []).map((item: any, ii: number) => ({
-              id: `item_${i}_${mi}_${ii}`,
-              name: sanitizeForPrompt(item.name, 100),
-              quantity: sanitizeForPrompt(item.quantity, 50),
-              calories: typeof item.calories === "number" ? Math.round(item.calories) : (typeof item.calories === "string" ? Math.round(parseFloat(item.calories) || 0) : 0),
-              isConsumed: false,
-            })),
+            items: (Array.isArray(meal.items) ? meal.items : []).map((item: any, ii: number) => {
+              const toNum = (v: any, decimals = 0) => {
+                const n = typeof v === "number" ? v : parseFloat(v);
+                if (!isFinite(n) || n < 0) return 0;
+                return decimals === 0 ? Math.round(n) : Math.round(n * 10) / 10;
+              };
+              return {
+                id: `item_${i}_${mi}_${ii}`,
+                name: sanitizeForPrompt(item.name, 100),
+                quantity: sanitizeForPrompt(item.quantity, 50),
+                calories: toNum(item.calories),
+                protein: toNum(item.protein, 1),
+                carbs: toNum(item.carbs, 1),
+                fat: toNum(item.fat, 1),
+                isConsumed: false,
+              };
+            }),
           })),
         };
       });

@@ -43,7 +43,10 @@ export interface DietItem {
   id: string;
   name: string;
   quantity: string;
-  calories?: number; // kcal por porção (opcional, preenchido pela IA ou manualmente)
+  calories?: number; // kcal por porção
+  protein?: number;  // g por porção
+  carbs?: number;    // g por porção
+  fat?: number;      // g por porção
   isConsumed: boolean;
 }
 

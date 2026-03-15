@@ -92,7 +92,7 @@ export async function generateWorkoutBadge(summary: WeekSummary): Promise<Blob> 
   ctx.globalAlpha = 0.88;
   ctx.fillStyle = PRIMARY;
   ctx.font = `bold 11px ${FONT}`;
-  ctx.fillText("◆  SHAPE WARD  ◆", CX, BY + 32);
+  ctx.fillText("◆  TRAINOVA  ◆", CX, BY + 32);
   ctx.globalAlpha = 1;
 
   // Separator
@@ -178,7 +178,7 @@ export async function generateWorkoutBadge(summary: WeekSummary): Promise<Blob> 
   ctx.fillStyle = "rgba(0,255,148,0.20)";
   ctx.font = `9px ${FONT}`;
   ctx.textAlign = "center";
-  ctx.fillText("shape-ward.web.app", CX, BY + BH - 14);
+  ctx.fillText("trainova.app", CX, BY + BH - 14);
 
   // ── Export ────────────────────────────────────────────────────────────────────
   return new Promise<Blob>((resolve, reject) => {
@@ -194,7 +194,7 @@ export function downloadBadge(blob: Blob, weekNumber: number): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `shape-ward-sticker-semana-${weekNumber}.png`;
+  a.download = `trainova-sticker-semana-${weekNumber}.png`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1_000);
 }

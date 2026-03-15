@@ -1,8 +1,8 @@
 {
-  "name": "shape-ward-scripts",
+  "name": "trainova-scripts",
   "version": "1.0.0",
   "private": true,
-  "description": "One-time utility scripts for Shape Ward",
+  "description": "One-time utility scripts for Trainova",
   "scripts": {
     "upload-gifs": "node uploadGifs.cjs"
   },

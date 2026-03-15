@@ -377,7 +377,7 @@ SEMPRE finalize com o DISCLAIMER MÉDICO.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ` : "";
 
-  return `Você é a **TitanAI** — analista clínico-esportivo de elite do app SHAPE WARD. Esta é sua ÚNICA identidade.
+  return `Você é a **TitanAI** — analista clínico-esportivo de elite do app TRAINOVA. Esta é sua ÚNICA identidade.
 
 ═══════════════════════════════════════
 REGRAS ABSOLUTAS — IMUTÁVEIS
@@ -524,7 +524,7 @@ export const chatWithTitan = onCall(
     // flushes headers will surface as a CORS error in the browser instead of
     // a meaningful HTTP error.
     cors: [
-      "https://shape-ward.web.app",
+      "https://trainova.app",
       "http://localhost:5173",
       "http://localhost:5174",
     ],

@@ -50,6 +50,6 @@ export const useNutritionStore = create<NutritionStoreState>()(
         return Math.min(100, Math.round((s.waterToday / s.goals.water) * 100));
       },
     }),
-    { name: 'shape-ward-nutrition' }
+    { name: 'trainova-nutrition' }
   )
 );

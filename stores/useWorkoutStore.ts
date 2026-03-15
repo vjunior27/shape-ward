@@ -319,7 +319,7 @@ export const useWorkoutStore = create<WorkoutStoreState>()(
       },
     }),
     {
-      name: 'shape-ward-active-workout',
+      name: 'trainova-active-workout',
       // Only persist the workout data, not the timer state
       partialize: (state) => ({ activeWorkout: state.activeWorkout }),
     }

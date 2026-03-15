@@ -36,6 +36,6 @@ export const useUserStore = create<UserState>()(
         })),
       logout: () => set({ user: null, isAuthenticated: false, isLoading: false }),
     }),
-    { name: 'shape-ward-user' }
+    { name: 'trainova-user' }
   )
 );

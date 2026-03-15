@@ -63,7 +63,7 @@ export async function generateShareImage(
   ctx.fillStyle = COLORS.primary;
   ctx.font = "bold 56px sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText("SHAPE WARD", W / 2, 140);
+  ctx.fillText("TRAINOVA", W / 2, 140);
 
   ctx.fillStyle = COLORS.gray;
   ctx.font = "36px sans-serif";
@@ -130,7 +130,7 @@ export async function generateShareImage(
   ctx.fillStyle = "rgba(255,255,255,0.15)";
   ctx.font = "32px sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText("shape-ward.app", W / 2, H - 80);
+  ctx.fillText("trainova.app", W / 2, H - 80);
 
   // ── Export as PNG Blob ──────────────────────────────────────────────────────
   return new Promise<Blob>((resolve, reject) => {
@@ -149,13 +149,13 @@ export async function generateShareImage(
  */
 export async function shareWeekSummary(summary: WeekSummary, userName: string): Promise<void> {
   const blob = await generateShareImage(summary, userName);
-  const file = new File([blob], "shape-ward-semana.png", { type: "image/png" });
+  const file = new File([blob], "trainova-semana.png", { type: "image/png" });
 
   // Use Web Share API if available (opens Instagram/WhatsApp share sheet on mobile)
   if (navigator.canShare?.({ files: [file] })) {
     await navigator.share({
       files: [file],
-      title: `Shape Ward — Semana ${summary.weekNumber}`,
+      title: `Trainova — Semana ${summary.weekNumber}`,
     });
     return;
   }
@@ -164,7 +164,7 @@ export async function shareWeekSummary(summary: WeekSummary, userName: string): 
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `shape-ward-semana-${summary.weekNumber}.png`;
+  a.download = `trainova-semana-${summary.weekNumber}.png`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

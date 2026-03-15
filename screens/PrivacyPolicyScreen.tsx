@@ -24,7 +24,7 @@ export function PrivacyPolicyScreen({ onBack }: Props) {
         <section>
           <h2 className="text-white font-bold text-base mb-2">1. Quem somos</h2>
           <p>
-            O <strong className="text-primary">Shape Ward</strong> é um aplicativo de acompanhamento fitness
+            O <strong className="text-primary">Trainova</strong> é um aplicativo de acompanhamento fitness
             desenvolvido por Vilson Jr. Este documento descreve como coletamos, usamos e protegemos seus dados
             pessoais, em conformidade com a{' '}
             <strong className="text-white">Lei Geral de Proteção de Dados (LGPD — Lei 13.709/2018)</strong>.
@@ -106,7 +106,7 @@ export function PrivacyPolicyScreen({ onBack }: Props) {
         </section>
 
         <p className="text-xs text-gray-600 text-center pt-4 border-t border-white/5">
-          Shape Ward © 2026 — Todos os direitos reservados
+          Trainova © 2026 — Todos os direitos reservados
         </p>
       </div>
     </div>

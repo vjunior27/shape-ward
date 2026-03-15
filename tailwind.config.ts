@@ -12,14 +12,27 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "#0a0a0f",
-        surface: "#13131a",
-        primary: "#00FF94",
+        primary: {
+          DEFAULT: "#00FF94",
+          dark: "#00cc76",
+          light: "#33FFB0",
+        },
         primaryDark: "#00cc76",
+        background: {
+          DEFAULT: "#0a0a0f",
+          surface: "#12121a",
+          elevated: "#1a1a28",
+        },
+        surface: "#12121a",
+        border: {
+          DEFAULT: "#1E1E2A",
+          light: "#2a2a3a",
+        },
       },
       fontFamily: {
-        sans: ["Inter", "sans-serif"],
+        sans: ['"SF Pro Display"', '"Helvetica Neue"', "Arial", "sans-serif"],
         display: ["Oswald", "sans-serif"],
+        mono: ['"SF Mono"', '"Fira Code"', "monospace"],
       },
       animation: {
         fadeIn: "fadeIn 0.3s ease-in-out",

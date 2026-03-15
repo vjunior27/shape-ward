@@ -1,5 +1,6 @@
 {
-  "name": "shape-ward",
+  "name": "trainova",
+  "description": "Trainova — AI fitness coach, workout tracker & nutrition journal",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -46,6 +47,7 @@
     "jsdom": "^28.1.0",
     "postcss": "^8.5.8",
     "rollup-plugin-visualizer": "^7.0.1",
+    "sharp": "^0.34.5",
     "tailwindcss": "^3.4.19",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",

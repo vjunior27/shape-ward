@@ -247,7 +247,7 @@ export const useStreakStore = create<StreakStoreState>()(
       },
     } as any),
     {
-      name: 'shape-ward-streak',
+      name: 'trainova-streak',
       // Exclude internal method from serialization
       partialize: (state: any) => {
         const { _checkAchievements, getLevel, getNextLevel, getLevelProgress, getAllAchievements, ...rest } = state;

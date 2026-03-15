@@ -48,7 +48,7 @@ export const WorkoutBadge: React.FC<Props> = ({ summary, size = 172 }) => {
         fontSize: px(8), fontWeight: 700, letterSpacing: "0.15em",
         color: "rgba(0,255,148,0.88)", marginTop: px(12), position: "relative",
       }}>
-        ◆ SHAPE WARD ◆
+        ◆ TRAINOVA ◆
       </span>
 
       {/* Separator */}
@@ -105,7 +105,7 @@ export const WorkoutBadge: React.FC<Props> = ({ summary, size = 172 }) => {
         fontSize: px(6), color: "rgba(0,255,148,0.20)",
         position: "absolute", bottom: px(8),
       }}>
-        shape-ward.web.app
+        trainova.app
       </span>
     </div>
   );

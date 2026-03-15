@@ -54,7 +54,7 @@ function drawBrand(ctx: CanvasRenderingContext2D, w: number, y: number, accent: 
   ctx.fillStyle = accent;
   ctx.font = 'bold 28px system-ui, sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('◆ SHAPE WARD ◆', w / 2, y);
+  ctx.fillText('◆ TRAINOVA ◆', w / 2, y);
 }
 
 function drawText(
@@ -95,7 +95,7 @@ function drawStreakCard(ctx: CanvasRenderingContext2D, data: ShareCardData, them
 
   // User
   drawText(ctx, data.userName, W / 2, H - 180, '#FFFFFF', 'bold 48px system-ui');
-  drawText(ctx, 'shape-ward.app', W / 2, H - 100, theme.accentColor, '32px system-ui');
+  drawText(ctx, 'trainova.app', W / 2, H - 100, theme.accentColor, '32px system-ui');
 }
 
 function drawWorkoutCard(ctx: CanvasRenderingContext2D, data: ShareCardData, theme: ShareCardTheme) {
@@ -136,7 +136,7 @@ function drawWorkoutCard(ctx: CanvasRenderingContext2D, data: ShareCardData, the
     drawText(ctx, `🏆 Novo PR: ${data.newPR}`, W / 2, 840, '#FFD700', 'bold 44px system-ui');
   }
 
-  drawText(ctx, 'shape-ward.app', W / 2, H - 100, theme.accentColor, '32px system-ui');
+  drawText(ctx, 'trainova.app', W / 2, H - 100, theme.accentColor, '32px system-ui');
 }
 
 function drawWeeklyCard(ctx: CanvasRenderingContext2D, data: ShareCardData, theme: ShareCardTheme) {
@@ -172,7 +172,7 @@ function drawWeeklyCard(ctx: CanvasRenderingContext2D, data: ShareCardData, them
     drawText(ctx, `Volume total: ${data.weeklyVolume.toLocaleString('pt-BR')}kg`, W / 2, 660, '#AAAAAA', '36px system-ui');
   }
 
-  drawText(ctx, 'shape-ward.app', W / 2, H - 60, theme.accentColor, '28px system-ui');
+  drawText(ctx, 'trainova.app', W / 2, H - 60, theme.accentColor, '28px system-ui');
 }
 
 function drawPRCard(ctx: CanvasRenderingContext2D, data: ShareCardData, theme: ShareCardTheme) {
@@ -193,7 +193,7 @@ function drawPRCard(ctx: CanvasRenderingContext2D, data: ShareCardData, theme: S
   drawText(ctx, 'NOVO RECORDE', W / 2, H / 2, '#FFD700', 'black 80px system-ui');
   drawText(ctx, data.newPR ?? '', W / 2, H / 2 + 100, '#FFFFFF', 'bold 56px system-ui');
   drawText(ctx, data.userName, W / 2, H - 180, '#FFFFFF', 'bold 48px system-ui');
-  drawText(ctx, 'shape-ward.app', W / 2, H - 100, theme.accentColor, '32px system-ui');
+  drawText(ctx, 'trainova.app', W / 2, H - 100, theme.accentColor, '32px system-ui');
 }
 
 function drawLevelUpCard(ctx: CanvasRenderingContext2D, data: ShareCardData, theme: ShareCardTheme) {
@@ -214,7 +214,7 @@ function drawLevelUpCard(ctx: CanvasRenderingContext2D, data: ShareCardData, the
   drawText(ctx, `NÍVEL ${data.level ?? 1}`, W / 2, H / 2 + 60, theme.accentColor, 'black 80px system-ui');
   drawText(ctx, data.levelName ?? '', W / 2, H / 2 + 160, '#FFFFFF', 'bold 56px system-ui');
   drawText(ctx, data.userName, W / 2, H - 180, '#FFFFFF', 'bold 48px system-ui');
-  drawText(ctx, 'shape-ward.app', W / 2, H - 100, theme.accentColor, '32px system-ui');
+  drawText(ctx, 'trainova.app', W / 2, H - 100, theme.accentColor, '32px system-ui');
 }
 
 // Polyfill roundRect for older browsers
@@ -262,16 +262,16 @@ export async function generateShareCard(
 
 export async function shareCard(data: ShareCardData, themeId = 'dark'): Promise<void> {
   const blob = await generateShareCard(data, themeId);
-  const file = new File([blob], 'shape-ward-share.png', { type: 'image/png' });
+  const file = new File([blob], 'trainova-share.png', { type: 'image/png' });
 
   if (navigator.canShare?.({ files: [file] })) {
-    await navigator.share({ files: [file], title: 'Shape Ward', text: 'Meu progresso no Shape Ward 💪' });
+    await navigator.share({ files: [file], title: 'Trainova', text: 'Meu progresso no Trainova 💪' });
   } else {
     // Fallback: download
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'shape-ward-share.png';
+    a.download = 'trainova-share.png';
     a.click();
     URL.revokeObjectURL(url);
   }

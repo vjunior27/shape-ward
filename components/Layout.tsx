@@ -1,6 +1,7 @@
 import React from 'react';
 import { Screen } from '../context/AppContext';
-import { MessageSquare, List, Dumbbell, LogOut, UserCircle, Utensils } from 'lucide-react';
+import { MessageSquare, List, LogOut, UserCircle, Utensils } from 'lucide-react';
+import { TrainovaLogo } from './TrainovaLogo';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -16,10 +17,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentScreen, userAva
       {/* Header */}
       <header className="px-6 py-4 glass-nav border-b border-white/[0.06] flex justify-between items-center sticky top-0 z-10">
         <div className="flex items-center gap-2.5">
-          <div className="p-1.5 rounded-xl bg-primary/10 border border-primary/20">
-            <Dumbbell className="text-primary w-5 h-5" />
-          </div>
-          <h1 className="font-display text-xl tracking-wider font-bold">SHAPE WARD</h1>
+          <TrainovaLogo variant="inline" className="h-8 w-auto" />
         </div>
         <div className="flex items-center gap-4">
           <button onClick={onLogout} className="text-gray-500 hover:text-white flex items-center gap-2 text-xs font-medium uppercase tracking-wider transition-colors">

@@ -23,7 +23,7 @@ async function startServer() {
   // ── CORS ────────────────────────────────────────────────────────────────────
   const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(",")
-    : ["http://localhost:3000", "http://localhost:5173", "https://shape-ward.web.app"];
+    : ["http://localhost:3000", "http://localhost:5173", "https://trainova.app"];
 
   app.use(
     cors({

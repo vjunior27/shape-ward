@@ -252,7 +252,7 @@ const GoalPopup: React.FC<{ summary: WeekSummary; userName: string; onClose: () 
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `shape-ward-semana-${summary.weekNumber}.png`;
+      a.download = `trainova-semana-${summary.weekNumber}.png`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (e) {
@@ -267,10 +267,10 @@ const GoalPopup: React.FC<{ summary: WeekSummary; userName: string; onClose: () 
     try {
       const blob = await captureSticker();
       if (!blob) return;
-      const file = new File([blob], `shape-ward-semana-${summary.weekNumber}.png`, { type: "image/png" });
+      const file = new File([blob], `trainova-semana-${summary.weekNumber}.png`, { type: "image/png" });
       if (navigator.canShare?.({ files: [file] })) {
         // Mobile: opens native share sheet (Instagram, WhatsApp, etc.)
-        await navigator.share({ files: [file], title: `Shape Ward — Semana ${summary.weekNumber}` });
+        await navigator.share({ files: [file], title: `Trainova — Semana ${summary.weekNumber}` });
       } else {
         // Desktop fallback: download the sticker
         const url = URL.createObjectURL(blob);
@@ -365,7 +365,7 @@ const GoalPopup: React.FC<{ summary: WeekSummary; userName: string; onClose: () 
 
             {/* Watermark */}
             <p className="text-center" style={{ color: "rgba(0,255,148,0.3)", fontSize: 8, fontWeight: "bold", letterSpacing: "0.35em" }}>
-              ◆ SHAPE WARD ◆
+              ◆ TRAINOVA ◆
             </p>
           </div>
         </div>

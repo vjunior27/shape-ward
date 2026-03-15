@@ -2,6 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Brand CSS Variables ── */
+:root {
+  --color-primary: #00FF94;
+  --color-primary-dark: #00cc76;
+  --color-primary-light: #33FFB0;
+  --color-background: #0a0a0f;
+  --color-surface: #12121a;
+  --color-elevated: #1a1a28;
+  --color-text-primary: #FAFAFA;
+  --color-text-secondary: #A1A1AA;
+  --color-text-muted: #52525B;
+  --color-border: #1E1E2A;
+  --color-success: #00FF94;
+  --color-warning: #F5A623;
+  --color-danger: #EF4444;
+}
+
 /* ── Body & Background ── */
 body {
   background: #0a0a0f;

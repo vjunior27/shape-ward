@@ -33,7 +33,7 @@ export function generateMedicalReport(
 
   const currentDiet = dietHistory.find((d) => d.id === 'current');
 
-  let txt = `SHAPE WARD — RELATÓRIO DE SAÚDE & PERFORMANCE
+  let txt = `TRAINOVA — RELATÓRIO DE SAÚDE & PERFORMANCE
 Gerado em: ${today}
 ${LINE}
 
@@ -98,14 +98,14 @@ ATIVIDADE FÍSICA — ÚLTIMA SEMANA REGISTRADA
     txt += `Nenhuma dieta registrada.\n`;
   }
 
-  txt += `\n${LINE}\nDISCLAIMER\nEste relatório foi gerado automaticamente pelo app Shape Ward com base em dados\nautorrelatados pelo usuário. As informações devem ser validadas por um profissional\nqualificado antes de qualquer intervenção clínica, nutricional ou de treinamento.\n${LINE}\n`;
+  txt += `\n${LINE}\nDISCLAIMER\nEste relatório foi gerado automaticamente pelo app Trainova com base em dados\nautorrelatados pelo usuário. As informações devem ser validadas por um profissional\nqualificado antes de qualquer intervenção clínica, nutricional ou de treinamento.\n${LINE}\n`;
 
   const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   const safeName = (profile.name || 'usuario').replace(/\s+/g, '-').toLowerCase();
-  a.download = `shape-ward-relatorio-${safeName}.txt`;
+  a.download = `trainova-relatorio-${safeName}.txt`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1_000);
 }

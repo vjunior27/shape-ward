@@ -8,7 +8,7 @@ interface TutorialModalProps {
 const steps = [
   {
     icon: <Sparkles size={36} className="text-primary" />,
-    title: 'Bem-vindo ao Shape Ward',
+    title: 'Bem-vindo ao Trainova',
     description:
       'Seu assistente de saúde e performance com inteligência artificial. Vamos te mostrar como tirar o máximo do app em poucos passos.',
   },

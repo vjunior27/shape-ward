@@ -78,7 +78,7 @@ export async function onForegroundMessage(
     if (!supported) return () => {};
     const messaging = getMessaging(app);
     return onMessage(messaging, (payload) => {
-      handler(payload.notification?.title ?? "Shape Ward", payload.notification?.body ?? "");
+      handler(payload.notification?.title ?? "Trainova", payload.notification?.body ?? "");
     });
   } catch {
     return () => {};

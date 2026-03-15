@@ -31,7 +31,7 @@ export async function exportUserData(userId: string): Promise<void> {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `shape-ward-dados-${userId.slice(0, 8)}.json`;
+  a.download = `trainova-dados-${userId.slice(0, 8)}.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

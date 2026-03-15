@@ -5,13 +5,13 @@ export default function CookieConsent() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const consent = localStorage.getItem('shape-ward-cookie-consent');
+    const consent = localStorage.getItem('trainova-cookie-consent');
     if (!consent) setVisible(true);
   }, []);
 
   const save = (analytics: boolean) => {
     localStorage.setItem(
-      'shape-ward-cookie-consent',
+      'trainova-cookie-consent',
       JSON.stringify({ accepted: analytics, date: new Date().toISOString(), analytics })
     );
     setVisible(false);

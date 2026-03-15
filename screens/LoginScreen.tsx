@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Dumbbell, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { Button } from '../components/Button';
+import { TrainovaLogo } from '../components/TrainovaLogo';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../services/firebase';
 
@@ -94,12 +95,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onDemoLogin }
         {/* Logo */}
         <div className="mb-6 relative">
           <div className="absolute inset-0 bg-primary/20 rounded-full blur-2xl scale-150" />
-          <div className="relative p-5 glass border-primary/25 rounded-3xl shadow-[0_0_40px_rgba(0,255,148,0.12)]">
-            <Dumbbell size={56} className="text-primary" />
-          </div>
+          <TrainovaLogo variant="full" lang="pt" size="lg" className="relative w-64 h-auto" />
         </div>
 
-        <h1 className="font-display text-4xl font-bold mb-1.5 tracking-wide">SHAPE WARD</h1>
         <p className="text-gray-400 mb-8 text-center font-sans text-sm">
           {isRegistering ? "Crie sua conta e comece agora." : "Forje seu corpo com precisão de IA."}
         </p>

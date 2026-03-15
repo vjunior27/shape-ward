@@ -12,7 +12,7 @@ export default function InstallBanner() {
     <div className="fixed bottom-20 left-4 right-4 z-50 bg-gradient-to-r from-primary/90 to-emerald-600/90 backdrop-blur-sm rounded-2xl p-4 shadow-2xl flex items-center gap-3">
       <Download size={20} className="text-black shrink-0" />
       <div className="flex-1">
-        <p className="text-black font-bold text-sm">Instalar Shape Ward</p>
+        <p className="text-black font-bold text-sm">Instalar Trainova</p>
         <p className="text-black/70 text-xs">Acesso rápido direto da tela inicial</p>
       </div>
       <button

@@ -556,7 +556,7 @@ function NutriTab({
   const userId = useUserStore((s) => s.user?.uid) ?? '';
 
   const [dateOffset, setDateOffset] = useState(0);
-  const [addingMealType, setAddingMealType] = useState<NutritionMeal['type'] | null>(null);
+  const [showAddFood, setShowAddFood] = useState(false);
 
   const targetDate = (() => {
     const d = new Date();
@@ -581,27 +581,6 @@ function NutriTab({
   const aiDay = aiPlanEntry?.day ?? null;
   const aiPlanId = aiPlanEntry?.planId ?? 'current';
 
-  // Map a DietMeal to a section type based on name/time heuristic
-  const aiMealSectionType = (meal: DietMeal): NutritionMeal['type'] => {
-    const n = meal.name.toLowerCase();
-    if (n.includes('café') || n.includes('manhã') || n.includes('despertar') ||
-        n.includes('matinal') || n.includes('pré-treino') || n.includes('pre-treino')) return 'breakfast';
-    if (n.includes('almoço') || n.includes('pós-treino') || n.includes('pos-treino')) return 'lunch';
-    if (n.includes('jantar') || n.includes('ceia') || n.includes('noturno')) return 'dinner';
-    // Time-based fallback
-    const hour = parseInt(meal.time.split(':')[0] ?? '12', 10);
-    if (hour < 10) return 'breakfast';
-    if (hour < 15) return 'lunch';
-    if (hour < 20) return 'dinner';
-    return 'snack';
-  };
-
-  const aiMealsForSection = (type: NutritionMeal['type']): DietMeal[] =>
-    aiDay?.meals.filter((m) => aiMealSectionType(m) === type) ?? [];
-
-  const manualMealsForSection = (type: NutritionMeal['type']) =>
-    (dailyNutrition?.meals ?? []).filter((m) => m.type === type);
-
   const toggleAiItem = (mealId: string, itemIdx: number) => {
     if (!aiDay) return;
     const newMeals = aiDay.meals.map((m) => {
@@ -616,12 +595,8 @@ function NutriTab({
     onUpdateDietDay(aiPlanId, { ...aiDay, meals: newMeals });
   };
 
-  const MEAL_SECTIONS: { type: NutritionMeal['type']; label: string }[] = [
-    { type: 'breakfast', label: 'Café da Manhã' },
-    { type: 'lunch',     label: 'Almoço' },
-    { type: 'dinner',    label: 'Jantar' },
-    { type: 'snack',     label: 'Lanche' },
-  ];
+  // All manual entries regardless of type
+  const allManualEntries = dailyNutrition?.meals ?? [];
 
   return (
     <div className="space-y-4">
@@ -653,33 +628,30 @@ function NutriTab({
         </div>
       </div>
 
-      {/* Meal sections */}
-      {MEAL_SECTIONS.map(({ type, label }) => {
-        const aiMeals = aiMealsForSection(type);
-        const manualMeals = manualMealsForSection(type);
-        const aiCals = aiMeals.flatMap((m) => m.items).reduce((s, i) => s + (i.calories ?? 0), 0);
-        const manualCals = manualMeals.reduce((s, m) => s + m.totalCalories, 0);
-        const sectionCals = aiCals + manualCals;
-
-        return (
-          <div key={type} className="bg-surface rounded-2xl border border-[#1E1E2A] overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[#1E1E2A]">
-              <p className="text-white font-semibold text-sm">{label}</p>
-              {sectionCals > 0 && <p className="text-primary text-xs font-bold">{sectionCals} kcal</p>}
-            </div>
-
-            {/* AI plan items */}
-            {aiMeals.map((meal) => (
-              <div key={meal.id}>
-                <div className="flex items-center gap-2 px-4 py-1.5 bg-[#0f0f1a]">
-                  <Clock size={10} className="text-primary shrink-0" />
-                  <span className="text-primary text-[10px] font-bold">{meal.time}</span>
-                  <span className="text-[#A1A1AA] text-[10px] truncate">{meal.name}</span>
+      {/* AI plan meals — rendered dynamically as the TitanAI defined them */}
+      {aiDay ? (
+        aiDay.meals.map((meal) => {
+          const mealCals = meal.items.reduce((s, i) => s + (i.calories ?? 0), 0);
+          return (
+            <div key={meal.id} className="bg-surface rounded-2xl border border-[#1E1E2A] overflow-hidden">
+              {/* Meal header: name + time defined by TitanAI */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-[#1E1E2A]">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 bg-primary/10 border border-primary/20 rounded-lg px-2 py-1">
+                    <Clock size={10} className="text-primary" />
+                    <span className="text-primary text-[11px] font-bold">{meal.time}</span>
+                  </div>
+                  <p className="text-white font-semibold text-sm">{meal.name}</p>
                 </div>
+                {mealCals > 0 && <p className="text-primary text-xs font-bold shrink-0">{mealCals} kcal</p>}
+              </div>
+
+              {/* Items */}
+              <div className="divide-y divide-[#1E1E2A]">
                 {meal.items.map((item, iIdx) => (
                   <div
                     key={item.id}
-                    className={`flex items-center gap-3 px-4 py-2.5 border-t border-[#1E1E2A] ${item.isConsumed ? 'opacity-50' : ''}`}
+                    className={`flex items-center gap-3 px-4 py-2.5 transition-opacity ${item.isConsumed ? 'opacity-40' : ''}`}
                   >
                     <button
                       onClick={() => toggleAiItem(meal.id, iIdx)}
@@ -701,41 +673,56 @@ function NutriTab({
                   </div>
                 ))}
               </div>
-            ))}
+            </div>
+          );
+        })
+      ) : (
+        /* No AI plan for this day */
+        <div className="bg-surface rounded-2xl border border-[#1E1E2A] flex flex-col items-center py-10 px-6 text-center gap-2">
+          <Utensils size={28} className="text-[#3f3f46]" />
+          <p className="text-[#A1A1AA] text-sm font-medium">Nenhum plano gerado para este dia</p>
+          <p className="text-[#52525B] text-xs">Peça ao TitanAI para montar sua dieta personalizada no chat.</p>
+        </div>
+      )}
 
-            {/* Manual food entries */}
-            {manualMeals.length > 0 && (
-              <div className={aiMeals.length > 0 ? 'border-t border-[#1E1E2A]' : ''}>
-                {manualMeals.map((meal) =>
-                  meal.entries.map((entry) => (
-                    <div key={entry.id} className="flex items-center justify-between px-4 py-2.5 border-t border-[#1E1E2A] first:border-t-0">
-                      <div>
-                        <p className="text-white text-sm">{entry.foodName}</p>
-                        <p className="text-[#52525B] text-xs">{entry.quantity}{entry.servingUnit} · P:{Math.round(entry.protein)}g</p>
-                      </div>
-                      <p className="text-[#A1A1AA] text-sm font-medium shrink-0 ml-3">{Math.round(entry.calories)} kcal</p>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            <button
-              onClick={() => setAddingMealType(type)}
-              className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs text-[#A1A1AA] hover:text-primary transition-colors border-t border-[#1E1E2A]"
-            >
-              <Plus size={13} /> Adicionar
-            </button>
+      {/* Manual food entries (always shown, if any) */}
+      {allManualEntries.length > 0 && (
+        <div className="bg-surface rounded-2xl border border-[#1E1E2A] overflow-hidden">
+          <div className="px-4 py-3 border-b border-[#1E1E2A]">
+            <p className="text-white font-semibold text-sm">Registros manuais</p>
           </div>
-        );
-      })}
+          <div className="divide-y divide-[#1E1E2A]">
+            {allManualEntries.map((meal) =>
+              meal.entries.map((entry) => (
+                <div key={entry.id} className="flex items-center justify-between px-4 py-2.5">
+                  <div>
+                    <p className="text-white text-sm">{entry.foodName}</p>
+                    <p className="text-[#52525B] text-xs">{entry.quantity}{entry.servingUnit} · P:{Math.round(entry.protein)}g</p>
+                  </div>
+                  <p className="text-[#A1A1AA] text-sm font-medium shrink-0 ml-3">{Math.round(entry.calories)} kcal</p>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
 
-      {addingMealType && userId && (
+      {/* Add food button */}
+      {userId && (
+        <button
+          onClick={() => setShowAddFood(true)}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-surface border border-[#1E1E2A] text-sm text-[#A1A1AA] hover:text-primary hover:border-primary/30 transition-colors"
+        >
+          <Plus size={15} /> Registrar alimento
+        </button>
+      )}
+
+      {showAddFood && userId && (
         <AddFoodModal
-          mealType={addingMealType}
+          mealType="snack"
           userId={userId}
           date={targetDate}
-          onClose={() => setAddingMealType(null)}
+          onClose={() => setShowAddFood(false)}
         />
       )}
     </div>

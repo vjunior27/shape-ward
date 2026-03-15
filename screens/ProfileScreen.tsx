@@ -1,12 +1,11 @@
 import React, { useState, useRef } from 'react';
 import { UserProfile, WeeklyWorkoutPlan, WeeklyDietPlan, HealthDocument } from '../types';
 import { Button } from '../components/Button';
-import { FileText, Save, UserCircle, Image as ImageIcon, X, Plus, Camera, AlertCircle, Download, Loader2, FileCheck, Stethoscope, CalendarClock, Trash2, PackageOpen } from 'lucide-react';
+import { FileText, Save, UserCircle, Image as ImageIcon, X, Plus, Camera, AlertCircle, Download, Loader2, FileCheck, Stethoscope, CalendarClock, Settings } from 'lucide-react';
 import { generateMedicalReport } from '../utils/generateReport';
 import { logEvent } from '../services/analytics';
 import { uploadHealthDocument, deleteHealthDocument } from '../services/firebase';
 import { useAppContext } from '../context/AppContext';
-import { exportUserData, deleteAllUserData } from '../services/dataExport';
 
 interface ProfileScreenProps {
   initialProfile: UserProfile;
@@ -21,7 +20,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   workoutHistory = [],
   dietHistory = [],
 }) => {
-  const { state } = useAppContext();
+  const { state, dispatch } = useAppContext();
   const [profile, setProfile] = useState<UserProfile>({
     ...initialProfile,
     documentosSaude: initialProfile.documentosSaude ?? [],
@@ -38,32 +37,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const handleGenerateReport = () => {
     generateMedicalReport(profile, workoutHistory, dietHistory);
     logEvent({ name: 'report_generated' });
-  };
-
-  const handleExportData = async () => {
-    const uid = state.user?.uid;
-    if (!uid) return;
-    try {
-      await exportUserData(uid);
-      logEvent({ name: 'data_exported' });
-    } catch (err) {
-      setError('Erro ao exportar dados. Tente novamente.');
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    const uid = state.user?.uid;
-    if (!uid) return;
-    const confirmed = window.confirm(
-      'ATENÇÃO: Esta ação é irreversível. Todos os seus dados serão permanentemente excluídos. Deseja continuar?'
-    );
-    if (!confirmed) return;
-    try {
-      await deleteAllUserData(uid);
-      logEvent({ name: 'account_deleted' });
-    } catch (err: any) {
-      setError('Erro ao excluir conta. Por favor, faça login novamente e tente de novo.');
-    }
   };
 
   const handleChange = (field: keyof UserProfile, value: string) => {
@@ -183,6 +156,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       <div className="p-6">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-display font-bold text-white tracking-wide">Seu Perfil</h2>
+          <button
+            type="button"
+            onClick={() => dispatch({ type: 'SET_SCREEN', payload: 'settings' })}
+            className="p-2 rounded-xl hover:bg-white/5 transition-colors"
+            aria-label="Configurações"
+          >
+            <Settings size={22} className="text-[#A1A1AA]" />
+          </button>
         </div>
 
         {error && (
@@ -427,26 +408,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               </button>
             )}
 
-            {/* LGPD — dados e exclusão de conta */}
-            <div className="border-t border-white/5 pt-3 space-y-2">
-              <p className="text-xs text-gray-600 text-center mb-1">Seus dados (LGPD)</p>
-              <button
-                type="button"
-                onClick={handleExportData}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-white/10 bg-white/5 text-gray-500 hover:text-primary hover:border-primary/20 transition-all text-sm"
-              >
-                <PackageOpen size={15} />
-                Exportar meus dados (JSON)
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteAccount}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-red-900/40 bg-red-950/20 text-red-600 hover:text-red-400 hover:border-red-700/40 transition-all text-sm"
-              >
-                <Trash2 size={15} />
-                Excluir minha conta permanentemente
-              </button>
-            </div>
           </div>
         </form>
       </div>

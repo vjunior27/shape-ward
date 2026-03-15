@@ -98,9 +98,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onDemoLogin }
           <TrainovaLogo variant="full" lang="pt" size="lg" className="relative w-64 h-auto" />
         </div>
 
-        <p className="text-gray-400 mb-8 text-center font-sans text-sm">
-          {isRegistering ? "Crie sua conta e comece agora." : "Forje seu corpo com precisão de IA."}
-        </p>
+        {isRegistering && (
+          <p className="text-gray-400 mb-6 text-center font-sans text-sm">Crie sua conta e comece agora.</p>
+        )}
+        {!isRegistering && <div className="mb-6" />}
 
         {/* Glass form card */}
         <div className="w-full glass-card rounded-3xl p-6 animate-slideUp">

@@ -16,6 +16,9 @@ const ProfileScreen       = lazy(() => import("./screens/ProfileScreen").then(m 
 const DietScreen          = lazy(() => import("./screens/DietScreen").then(m => ({ default: m.DietScreen })));
 const ActiveWorkoutScreen = lazy(() => import("./screens/ActiveWorkoutScreen"));
 const AchievementsScreen  = lazy(() => import("./screens/AchievementsScreen"));
+const SettingsScreen      = lazy(() => import("./screens/SettingsScreen"));
+const TermsScreen         = lazy(() => import("./screens/TermsScreen"));
+const PrivacyPolicyScreen = lazy(() => import("./screens/PrivacyPolicyScreen").then(m => ({ default: m.PrivacyPolicyScreen })));
 
 export default function App() {
   const {
@@ -121,6 +124,14 @@ export default function App() {
           workoutHistory={workoutHistory}
           dietHistory={dietHistory}
         />
+      )}
+
+      {currentScreen === "settings" && <SettingsScreen />}
+
+      {currentScreen === "terms" && <TermsScreen />}
+
+      {currentScreen === "privacy" && (
+        <PrivacyPolicyScreen onBack={() => dispatch({ type: "SET_SCREEN", payload: "settings" })} />
       )}
 
       {/* Disclaimer modal */}

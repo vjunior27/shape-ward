@@ -1,7 +1,6 @@
 import React from 'react';
 import { Screen } from '../context/AppContext';
 import { MessageSquare, List, LogOut, UserCircle, Utensils } from 'lucide-react';
-import { TrainovaLogo } from './TrainovaLogo';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -16,8 +15,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentScreen, userAva
     <div className="flex flex-col h-screen bg-background text-white">
       {/* Header */}
       <header className="px-6 py-4 glass-nav border-b border-white/[0.06] flex justify-between items-center sticky top-0 z-10">
-        <div className="flex items-center gap-2.5">
-          <TrainovaLogo variant="inline" className="h-8 w-auto" />
+        <div className="flex items-center gap-2.5 overflow-visible">
+          <img src="/trainova-logo-inline.svg" alt="Trainova" className="h-7 w-auto object-contain" />
         </div>
         <div className="flex items-center gap-4">
           <button onClick={onLogout} className="text-gray-500 hover:text-white flex items-center gap-2 text-xs font-medium uppercase tracking-wider transition-colors">

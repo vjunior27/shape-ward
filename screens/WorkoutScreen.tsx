@@ -239,13 +239,15 @@ const GoalPopup: React.FC<{ summary: WeekSummary; userName: string; onClose: () 
   const stickerRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
-  const streakDays = useStreakStore((s) => s.currentStreak);
 
   // Build weekDays array: 7 days Mon→Sun
   const weekDays = WEEK_DAY_TRACKER.map(({ full }, i) => ({
     label: WEEK_SINGLE_LABELS[i],
     trained: summary.trainedDays.includes(full),
   }));
+
+  // Days trained this week (same data that fills the squares)
+  const daysTrainedThisWeek = weekDays.filter((d) => d.trained).length;
 
   /** Captures stickerRef via html2canvas and returns a PNG Blob. */
   const captureSticker = async (): Promise<Blob | null> => {
@@ -269,7 +271,7 @@ const GoalPopup: React.FC<{ summary: WeekSummary; userName: string; onClose: () 
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `trainova-streak-${streakDays}d.png`;
+      a.download = `trainova-semana-${daysTrainedThisWeek}d.png`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (e) {
@@ -284,9 +286,9 @@ const GoalPopup: React.FC<{ summary: WeekSummary; userName: string; onClose: () 
     try {
       const blob = await captureSticker();
       if (!blob) return;
-      const file = new File([blob], `trainova-streak-${streakDays}d.png`, { type: "image/png" });
+      const file = new File([blob], `trainova-semana-${daysTrainedThisWeek}d.png`, { type: "image/png" });
       if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: `${streakDays} dias de streak no Trainova!` });
+        await navigator.share({ files: [file], title: `${daysTrainedThisWeek} dias treinados esta semana no Trainova!` });
       } else {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -317,8 +319,8 @@ const GoalPopup: React.FC<{ summary: WeekSummary; userName: string; onClose: () 
               style={{ display: "block", width: 300, height: 350 }}
             >
               {/* Background */}
-              <rect width="600" height="700" rx="48" fill="#0a0a0f"
-                stroke="#00FF94" strokeWidth="1.2" strokeOpacity="0.25"/>
+              <rect width="600" height="700" rx="48" fill="#0a0a0f" fillOpacity="0.55"
+                stroke="#00FF94" strokeWidth="1.2" strokeOpacity="0.15"/>
 
               {/* Trainova logo — barbell + ECG */}
               <g transform="translate(300, 76) scale(0.38)">
@@ -351,16 +353,16 @@ const GoalPopup: React.FC<{ summary: WeekSummary; userName: string; onClose: () 
               <path d="M288 278 C288 270 292 262 296 258 C294 264 294 268 294 272 C294 278 298 282 300 282 C302 282 306 278 306 272 C306 268 306 264 304 258 C308 262 312 270 312 278 C312 286 306 292 300 292 C294 292 288 286 288 278Z"
                 fill="#FBBF24" opacity="0.85"/>
 
-              {/* Streak number */}
+              {/* Days this week */}
               <text x="300" y="410" textAnchor="middle"
                 fontFamily="'SF Pro Display','Helvetica Neue',Arial,sans-serif"
                 fontSize="144" fontWeight="500" fill="#FAFAFA">
-                {streakDays}
+                {daysTrainedThisWeek}
               </text>
               <text x="300" y="456" textAnchor="middle"
                 fontFamily="'SF Pro Display','Helvetica Neue',Arial,sans-serif"
                 fontSize="28" fill="#A1A1AA" letterSpacing="2">
-                dias em streak
+                dias esta semana
               </text>
 
               {/* Separator */}
@@ -409,7 +411,7 @@ const GoalPopup: React.FC<{ summary: WeekSummary; userName: string; onClose: () 
           >
             {isSharing
               ? <><div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Gerando imagem...</>
-              : <><Instagram size={20} /> Compartilhar via Instagram</>}
+              : <><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="5"/><circle cx="17.5" cy="6.5" r="1.5" fill="currentColor" stroke="none"/></svg> Compartilhar via Instagram</>}
           </button>
           <button
             onClick={handleDownload}

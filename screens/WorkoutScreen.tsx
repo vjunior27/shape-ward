@@ -48,6 +48,7 @@ interface WorkoutScreenProps {
   onUpdateWeek: (week: WeeklyWorkoutPlan) => void;
   onUpdateAIPlan: (plan: AIWorkoutDisplay | null) => void;
   onNavigateToChat?: (prefillText?: string) => void;
+  onStartWorkout?: () => void;
 }
 
 // ─── Post-Workout Debriefing Modal ────────────────────────────────────────────
@@ -483,7 +484,7 @@ const ExerciseRow: React.FC<{
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export const WorkoutScreen: React.FC<WorkoutScreenProps> = ({
-  startDate, history, aiPlan, weeklyGoal, userName, onUpdateWeek, onUpdateAIPlan, onNavigateToChat,
+  startDate, history, aiPlan, weeklyGoal, userName, onUpdateWeek, onUpdateAIPlan, onNavigateToChat, onStartWorkout,
 }) => {
   const [activeTab, setActiveTab] = useState<"journal" | "ai">("journal");
   const [displayWeeks, setDisplayWeeks] = useState<WeeklyWorkoutPlan[]>([]);

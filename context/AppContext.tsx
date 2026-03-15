@@ -33,7 +33,7 @@ import { logEvent } from "../services/analytics";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type Screen = "login" | "chat" | "workouts" | "diet" | "profile" | "active-workout" | "achievements" | "settings" | "terms" | "privacy";
+export type Screen = "login" | "chat" | "workouts" | "diet" | "profile" | "active-workout" | "achievements" | "settings" | "terms" | "privacy" | "workout-history";
 
 const DEFAULT_PROFILE: UserProfile = {
   name: "",

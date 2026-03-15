@@ -14,7 +14,8 @@ const ChatScreen          = lazy(() => import("./screens/ChatScreen").then(m => 
 const WorkoutScreen       = lazy(() => import("./screens/WorkoutScreen").then(m => ({ default: m.WorkoutScreen })));
 const ProfileScreen       = lazy(() => import("./screens/ProfileScreen").then(m => ({ default: m.ProfileScreen })));
 const DietScreen          = lazy(() => import("./screens/DietScreen").then(m => ({ default: m.DietScreen })));
-const ActiveWorkoutScreen = lazy(() => import("./screens/ActiveWorkoutScreen"));
+const ActiveWorkoutScreen    = lazy(() => import("./screens/ActiveWorkoutScreen"));
+const WorkoutHistoryScreen   = lazy(() => import("./screens/WorkoutHistoryScreen"));
 const AchievementsScreen  = lazy(() => import("./screens/AchievementsScreen"));
 const SettingsScreen      = lazy(() => import("./screens/SettingsScreen"));
 const TermsScreen         = lazy(() => import("./screens/TermsScreen"));
@@ -83,6 +84,10 @@ export default function App() {
         <ActiveWorkoutScreen onClose={() => dispatch({ type: "SET_SCREEN", payload: "workouts" })} />
       )}
 
+      {currentScreen === "workout-history" && (
+        <WorkoutHistoryScreen onBack={() => dispatch({ type: "SET_SCREEN", payload: "workouts" })} />
+      )}
+
       {currentScreen === "achievements" && (
         <AchievementsScreen />
       )}
@@ -110,6 +115,7 @@ export default function App() {
             dispatch({ type: "SET_SCREEN", payload: "chat" });
             if (prefill) setTimeout(() => handleSendMessage(prefill), 300);
           }}
+          onStartWorkout={() => dispatch({ type: "SET_SCREEN", payload: "active-workout" })}
         />
       )}
 

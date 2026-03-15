@@ -115,7 +115,7 @@ function SetRow({ setData, setNumber, exerciseId, onComplete }: SetRowProps) {
       <span className="text-gray-500 text-xs font-mono w-5 text-center">{setNumber}</span>
 
       {/* Weight */}
-      <div className="flex items-center bg-gray-800 rounded-lg flex-1">
+      <div className="flex items-center bg-gray-800 rounded-lg flex-1 focus-within:ring-1 focus-within:ring-primary/50 transition-all">
         <button
           className="px-2 py-2 text-gray-400 hover:text-white"
           onClick={() => updateSet(exerciseId, setData.id, { weight: Math.max(0, setData.weight - 2.5) })}
@@ -124,7 +124,7 @@ function SetRow({ setData, setNumber, exerciseId, onComplete }: SetRowProps) {
           type="number" inputMode="decimal"
           value={setData.weight || ''}
           onChange={(e) => updateSet(exerciseId, setData.id, { weight: parseFloat(e.target.value) || 0 })}
-          className="w-12 bg-transparent text-white text-center text-sm font-mono tabular-nums focus:outline-none"
+          className="w-14 bg-transparent text-white text-center text-sm font-mono tabular-nums font-bold focus:outline-none focus:text-primary transition-colors"
           placeholder="0"
         />
         <button

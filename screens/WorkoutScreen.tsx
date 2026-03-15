@@ -1,9 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  AlertTriangle, BrainCircuit, Calendar, ChevronDown, ChevronRight, Copy, Crown,
-  Dumbbell, ExternalLink, Info, Instagram, Mic, MicOff, MessageSquare, Plus, Trash2,
-  TrendingUp, X, PlayCircle, Zap, Home,
+  AlertTriangle, BrainCircuit, Calendar, ChevronDown, ChevronRight, ChevronLeft, Check,
+  Copy, Crown, Dumbbell, ExternalLink, Info, Instagram, Mic, MicOff, MessageSquare,
+  Plus, Trash2, TrendingUp, X, PlayCircle, Zap, Home,
 } from "lucide-react";
+import {
+  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
+} from "recharts";
 import { AIWorkoutDisplay, DailyWorkout, Exercise, WeeklyWorkoutPlan, WeekSummary } from "../types";
 import { useStreakStore } from "../stores/useStreakStore";
 import { useSpeechInput } from "../hooks/useSpeechInput";
@@ -400,20 +403,20 @@ const GoalPopup: React.FC<{ summary: WeekSummary; userName: string; onClose: () 
         {/* ── Buttons — NOT captured ── */}
         <div className="px-6 pb-6 pt-0 flex flex-col gap-2">
           <button
+            onClick={handleShare}
+            disabled={busy}
+            className="w-full bg-gradient-to-r from-[#833AB4] via-[#E1306C] to-[#F77737] text-white font-bold py-4 rounded-2xl hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-60 shadow-[0_0_28px_rgba(225,48,108,0.45)] text-base"
+          >
+            {isSharing
+              ? <><div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Gerando imagem...</>
+              : <><Instagram size={20} /> Compartilhar via Instagram</>}
+          </button>
+          <button
             onClick={handleDownload}
             disabled={busy}
             className="w-full bg-white/[0.06] border border-white/[0.10] text-white font-semibold py-2.5 rounded-2xl hover:bg-white/[0.10] transition-all flex items-center justify-center gap-2 disabled:opacity-50 text-sm"
           >
             {isDownloading ? "Gerando PNG..." : <><span className="text-base">⬇</span> Baixar Sticker (PNG transparente)</>}
-          </button>
-          <button
-            onClick={handleShare}
-            disabled={busy}
-            className="w-full bg-gradient-to-r from-[#E1306C] via-[#833AB4] to-[#405DE6] text-white font-bold py-4 rounded-2xl hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-60 shadow-[0_0_28px_rgba(225,48,108,0.45)] text-base"
-          >
-            {isSharing
-              ? <><div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Gerando imagem...</>
-              : <><Instagram size={20} /> Compartilhar no Instagram</>}
           </button>
           <button onClick={onClose} disabled={busy} className="w-full py-3 bg-white/5 rounded-2xl text-gray-400 hover:text-white transition-colors text-sm disabled:opacity-40">
             Fechar
@@ -507,6 +510,210 @@ const ExerciseRow: React.FC<{
   );
 };
 
+// ─── Exercise Progress View ──────────────────────────────────────────────────
+
+type ProgressMetric = "maxWeight" | "volume" | "bestSet";
+type ProgressPeriod = "1m" | "3m" | "6m" | "1a" | "all";
+
+const METRIC_LABELS: Record<ProgressMetric, string> = {
+  maxWeight: "Carga máx.",
+  volume: "Volume total",
+  bestSet: "Melhor série",
+};
+
+const PERIOD_LABELS: Record<ProgressPeriod, string> = {
+  "1m": "1m", "3m": "3m", "6m": "6m", "1a": "1a", "all": "Tudo",
+};
+
+function filterByPeriod(
+  data: { date: string; maxWeight: number; volume: number; bestSet: number }[],
+  period: ProgressPeriod
+) {
+  if (period === "all") return data;
+  const months = { "1m": 1, "3m": 3, "6m": 6, "1a": 12 }[period];
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - months);
+  const cutoffStr = cutoff.toISOString().split("T")[0];
+  return data.filter((d) => d.date >= cutoffStr);
+}
+
+const ExerciseProgressView: React.FC<{
+  name: string;
+  history: WeeklyWorkoutPlan[];
+  onBack: () => void;
+}> = ({ name, history, onBack }) => {
+  const [metric, setMetric] = useState<ProgressMetric>("maxWeight");
+  const [period, setPeriod] = useState<ProgressPeriod>("3m");
+
+  const allSessions = history
+    .flatMap((w) =>
+      w.days.flatMap((d) => {
+        const exs = d.exercises.filter(
+          (ex) => ex.name.toLowerCase() === name.toLowerCase() && ex.weight
+        );
+        if (!exs.length) return [];
+        const weights = exs.map((ex) => parseFloat(ex.weight) || 0);
+        const repsArr = exs.map((ex) => parseInt(ex.reps) || 0);
+        const setsArr = exs.map((ex) => parseInt(ex.sets) || 0);
+        const maxWeight = Math.max(...weights);
+        const volume = exs.reduce(
+          (acc, ex, i) => acc + weights[i] * repsArr[i] * setsArr[i],
+          0
+        );
+        const bestSet = exs.reduce(
+          (acc, ex, i) => Math.max(acc, weights[i] * repsArr[i]),
+          0
+        );
+        return [{ date: d.date, maxWeight, volume, bestSet }];
+      })
+    )
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const filtered = filterByPeriod(allSessions, period);
+
+  const chartData = filtered.map((s) => ({
+    date: new Date(s.date + "T12:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+    value: metric === "maxWeight" ? s.maxWeight : metric === "volume" ? s.volume : s.bestSet,
+    raw: s,
+  }));
+
+  const unit = metric === "volume" ? "kg·rep" : "kg";
+  const latest = filtered[filtered.length - 1];
+  const prev = filtered[filtered.length - 2];
+  const diff = latest && prev ? latest[metric] - prev[metric] : null;
+
+  return (
+    <div className="space-y-4 animate-fadeIn">
+      <button
+        onClick={onBack}
+        className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors"
+      >
+        <ChevronLeft size={16} /> Voltar
+      </button>
+
+      <div>
+        <h3 className="text-lg font-bold text-white">{name}</h3>
+        {latest && (
+          <p className="text-xs text-gray-500 mt-0.5">
+            Último registro:{" "}
+            <span className="text-primary font-mono font-bold">
+              {latest[metric].toLocaleString("pt-BR")}{unit}
+            </span>
+            {diff !== null && (
+              <span className={`ml-2 font-bold ${diff >= 0 ? "text-green-400" : "text-red-400"}`}>
+                {diff >= 0 ? "+" : ""}{diff.toLocaleString("pt-BR")}{unit}
+              </span>
+            )}
+          </p>
+        )}
+      </div>
+
+      {/* Metric toggle */}
+      <div className="flex gap-1.5 flex-wrap">
+        {(Object.keys(METRIC_LABELS) as ProgressMetric[]).map((m) => (
+          <button
+            key={m}
+            onClick={() => setMetric(m)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              metric === m
+                ? "bg-primary text-black"
+                : "bg-surface border border-white/10 text-gray-400 hover:text-white"
+            }`}
+          >
+            {METRIC_LABELS[m]}
+          </button>
+        ))}
+      </div>
+
+      {/* Period filter */}
+      <div className="flex gap-1.5">
+        {(Object.keys(PERIOD_LABELS) as ProgressPeriod[]).map((p) => (
+          <button
+            key={p}
+            onClick={() => setPeriod(p)}
+            className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-colors ${
+              period === p
+                ? "bg-primary/20 text-primary border border-primary/40"
+                : "text-gray-500 hover:text-gray-300"
+            }`}
+          >
+            {PERIOD_LABELS[p]}
+          </button>
+        ))}
+      </div>
+
+      {/* Chart */}
+      {chartData.length > 1 ? (
+        <div className="bg-surface border border-white/5 rounded-2xl p-4">
+          <ResponsiveContainer width="100%" height={160}>
+            <AreaChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="progressGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#00FF94" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#00FF94" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <XAxis
+                dataKey="date"
+                tick={{ fill: "#52525B", fontSize: 10 }}
+                tickLine={false}
+                axisLine={false}
+                interval="preserveStartEnd"
+              />
+              <YAxis
+                tick={{ fill: "#52525B", fontSize: 10 }}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(v) => `${v}`}
+              />
+              <Tooltip
+                contentStyle={{ background: "#1a1a28", border: "1px solid #1E1E2A", borderRadius: 12, fontSize: 12 }}
+                labelStyle={{ color: "#A1A1AA" }}
+                itemStyle={{ color: "#00FF94" }}
+                formatter={(v: number) => [`${v.toLocaleString("pt-BR")}${unit}`, METRIC_LABELS[metric]]}
+              />
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke="#00FF94"
+                strokeWidth={2}
+                fill="url(#progressGradient)"
+                dot={{ fill: "#00FF94", r: 3, strokeWidth: 0 }}
+                activeDot={{ r: 5, fill: "#00FF94" }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      ) : (
+        <div className="bg-surface border border-white/5 rounded-2xl p-8 text-center">
+          <p className="text-gray-500 text-sm">Poucos dados no período selecionado.</p>
+          <button onClick={() => setPeriod("all")} className="mt-2 text-xs text-primary hover:underline">
+            Ver tudo
+          </button>
+        </div>
+      )}
+
+      {/* Session list */}
+      <div className="space-y-2">
+        <p className="text-[10px] uppercase tracking-widest text-gray-500 font-bold ml-1">
+          Histórico de sessões
+        </p>
+        {[...filtered].reverse().map((s, i) => (
+          <div key={i} className="bg-surface border border-white/5 p-3 rounded-xl flex items-center justify-between">
+            <p className="text-xs text-gray-400">
+              {new Date(s.date + "T12:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+            </p>
+            <div className="flex gap-4 text-xs font-mono">
+              <span className="text-primary font-bold">{s.maxWeight}kg</span>
+              <span className="text-gray-400">vol {s.volume.toLocaleString("pt-BR")}kg</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export const WorkoutScreen: React.FC<WorkoutScreenProps> = ({
@@ -516,7 +723,9 @@ export const WorkoutScreen: React.FC<WorkoutScreenProps> = ({
   const [displayWeeks, setDisplayWeeks] = useState<WeeklyWorkoutPlan[]>([]);
   const [expandedWeekId, setExpandedWeekId] = useState<string | null>(null);
   const [expandedDayIndex, setExpandedDayIndex] = useState<number | null>(null);
+  const [weekIndex, setWeekIndex] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
   const [importingDay, setImportingDay] = useState<AIWorkoutDisplay["days"][0] | null>(null);
   const [viewingExercise, setViewingExercise] = useState<{ name: string; obs?: string } | null>(null);
   const [weekSummary, setWeekSummary] = useState<WeekSummary | null>(null);
@@ -834,120 +1043,175 @@ export const WorkoutScreen: React.FC<WorkoutScreenProps> = ({
               </div>
             )}
 
+            {/* ── Exercise search ── */}
             <div className="relative">
               <Dumbbell size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
               <input type="text" placeholder="Buscar exercício no histórico..." value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => { setSearchTerm(e.target.value); setSelectedExercise(null); }}
                 className="w-full bg-surface border border-white/5 rounded-2xl py-3.5 pl-11 pr-10 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-primary/30 transition-all" />
-              {searchTerm && <button onClick={() => setSearchTerm("")} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"><X size={16} /></button>}
+              {searchTerm && <button onClick={() => { setSearchTerm(""); setSelectedExercise(null); }} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"><X size={16} /></button>}
             </div>
 
-            {searchTerm.length > 2 ? (
-              <div className="space-y-3 animate-fadeIn">
-                <div className="flex items-center gap-2 ml-1">
-                  <BrainCircuit size={13} className="text-primary" />
-                  <span className="text-xs font-bold text-primary uppercase tracking-widest">Histórico: {searchTerm}</span>
-                </div>
-                {getExerciseHistory(searchTerm).length > 0 ? (
-                  getExerciseHistory(searchTerm).map((item, idx) => (
-                    <div key={idx} className="bg-surface border border-white/5 p-4 rounded-2xl flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-gray-500">{new Date(item.date + "T12:00").toLocaleDateString("pt-BR")}</p>
-                        <p className="text-sm font-bold text-white uppercase tracking-tight mt-0.5">{searchTerm}</p>
-                      </div>
-                      <div className="flex gap-4">
-                        <div className="text-right"><p className="text-[9px] text-gray-500 uppercase">Carga</p><p className="text-sm font-mono text-primary">{item.weight || "0"}kg</p></div>
-                        <div className="text-right"><p className="text-[9px] text-gray-500 uppercase">Séries×Reps</p><p className="text-sm font-mono text-white">{item.sets || "0"}×{item.reps || "0"}</p></div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-center py-10 text-gray-500 text-sm">Nenhum registro para "{searchTerm}"</p>
-                )}
-              </div>
-            ) : (
-              displayWeeks.map((week, wIdx) => {
-                const isExpanded = expandedWeekId === week.id;
-                const daysWithEx = week.days.filter((d) => d.exercises.length > 0).length;
-                const goalMet = daysWithEx >= weeklyGoal;
-
-                return (
-                  <div key={week.id} className="bg-surface rounded-2xl border border-white/5 overflow-hidden shadow-md">
-                    <button onClick={() => { setExpandedWeekId(isExpanded ? null : week.id); setExpandedDayIndex(null); }}
-                      className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-xl ${isExpanded ? "bg-primary text-black" : "bg-white/5 text-gray-400"}`}><Calendar size={18} /></div>
-                        <div className="text-left">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-bold text-white">Semana {week.weekNumber} · {week.year}</h3>
-                            {goalMet && <Crown size={13} className="text-primary" />}
+            {/* ── Exercise progress chart ── */}
+            {selectedExercise ? (
+              <ExerciseProgressView
+                name={selectedExercise}
+                history={displayWeeks}
+                onBack={() => { setSelectedExercise(null); setSearchTerm(""); }}
+              />
+            ) : searchTerm.length > 2 ? (() => {
+              // Collect unique exercise names matching search
+              const uniqueNames = Array.from(new Set(
+                displayWeeks.flatMap((w) => w.days.flatMap((d) =>
+                  d.exercises
+                    .filter((ex) => ex.name.toLowerCase().includes(searchTerm.toLowerCase()))
+                    .map((ex) => ex.name)
+                ))
+              ));
+              return (
+                <div className="space-y-2 animate-fadeIn">
+                  <p className="text-[10px] uppercase tracking-widest text-gray-500 font-bold ml-1">
+                    Exercícios encontrados
+                  </p>
+                  {uniqueNames.length > 0 ? (
+                    uniqueNames.map((name) => {
+                      const sessions = getExerciseHistory(name);
+                      const latest = sessions[0];
+                      return (
+                        <button
+                          key={name}
+                          onClick={() => { setSelectedExercise(name); setSearchTerm(name); }}
+                          className="w-full bg-surface border border-white/5 hover:border-primary/30 p-4 rounded-2xl flex items-center justify-between transition-all group"
+                        >
+                          <div className="text-left">
+                            <p className="text-sm font-semibold text-white group-hover:text-primary transition-colors">{name}</p>
+                            {latest && (
+                              <p className="text-xs text-gray-500 mt-0.5">
+                                {sessions.length} sessão{sessions.length !== 1 ? "ões" : ""} · último: {latest.weight || "0"}kg
+                              </p>
+                            )}
                           </div>
-                          <p className="text-xs text-gray-400">
-                            {new Date(week.startDate).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} – {new Date(week.endDate).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
-                            <span className="ml-2 text-primary font-bold">{daysWithEx} dias</span>
-                          </p>
-                        </div>
-                      </div>
-                      {isExpanded ? <ChevronDown size={18} className="text-primary" /> : <ChevronRight size={18} className="text-gray-500" />}
+                          <div className="flex items-center gap-2">
+                            <TrendingUp size={14} className="text-gray-600 group-hover:text-primary transition-colors" />
+                          </div>
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <p className="text-center py-10 text-gray-500 text-sm">Nenhum registro para "{searchTerm}"</p>
+                  )}
+                </div>
+              );
+            })() : (() => {
+              // ── Week selector + 7-day accordion ──
+              const currentWeek = displayWeeks[weekIndex];
+              if (!currentWeek) return null;
+              const wIdx = weekIndex;
+              const daysWithEx = currentWeek.days.filter((d) => d.exercises.length > 0).length;
+              const goalMet = daysWithEx >= weeklyGoal;
+
+              return (
+                <div className="space-y-3 animate-fadeIn">
+                  {/* Week selector */}
+                  <div className="flex items-center justify-between bg-surface border border-white/5 rounded-2xl px-4 py-3">
+                    <button
+                      onClick={() => { setWeekIndex((i) => Math.min(i + 1, displayWeeks.length - 1)); setExpandedDayIndex(null); }}
+                      disabled={weekIndex >= displayWeeks.length - 1}
+                      className="p-1 text-gray-500 hover:text-white disabled:opacity-30 transition-colors"
+                    >
+                      <ChevronLeft size={20} />
                     </button>
-
-                    {isExpanded && (
-                      <div className="px-3 pb-3 space-y-2 bg-background">
-                        {week.days.map((day, dIdx) => {
-                          const isDayExpanded = expandedDayIndex === dIdx;
-                          const hasEx = day.exercises.length > 0;
-                          const isWeekend = day.dayName === "Sábado" || day.dayName === "Domingo";
-                          return (
-                            <div key={day.date} className={`rounded-xl border transition-all ${isDayExpanded ? "border-primary/30" : "border-white/5"}`}>
-                              <button onClick={() => setExpandedDayIndex(isDayExpanded ? null : dIdx)}
-                                className="w-full flex items-center justify-between p-3 hover:bg-white/5 rounded-xl transition-colors">
-                                <div className="flex items-center gap-3">
-                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${hasEx ? "bg-primary text-black" : "bg-surface text-gray-600"}`}>
-                                    {hasEx ? "✓" : <Dumbbell size={13} />}
-                                  </div>
-                                  <div className="text-left">
-                                    <p className={`font-semibold text-sm ${isWeekend ? "text-gray-400" : "text-white"}`}>{day.dayName}</p>
-                                    {hasEx && <p className="text-[10px] text-primary">{day.exercises.length} exercício{day.exercises.length !== 1 ? "s" : ""}</p>}
-                                  </div>
-                                </div>
-                                {isDayExpanded ? <ChevronDown size={15} className="text-primary" /> : <ChevronRight size={15} className="text-gray-600" />}
-                              </button>
-
-                              {isDayExpanded && (
-                                <div className="px-3 pb-3 animate-fadeIn">
-                                  <div className="flex justify-between items-center mb-2">
-                                    <button onClick={() => copyLastWorkout(wIdx, dIdx)} className="text-xs flex items-center gap-1 text-primary hover:underline">
-                                      <Copy size={11} /> Copiar último treino
-                                    </button>
-                                    {hasEx && (
-                                      <button
-                                        onClick={() => setDebriefDay(day.dayName)}
-                                        className="text-xs flex items-center gap-1 text-gray-500 hover:text-primary transition-colors"
-                                      >
-                                        <Zap size={11} /> Debrief
-                                      </button>
-                                    )}
-                                  </div>
-                                  {day.exercises.map((ex, exIdx) => (
-                                    <ExerciseRow key={ex.id} ex={ex} exIdx={exIdx} wIdx={wIdx} dIdx={dIdx}
-                                      onUpdate={updateExercise} onRemove={removeExercise}
-                                      onView={(name, obs) => setViewingExercise({ name, obs })} />
-                                  ))}
-                                  <button onClick={() => addExercise(wIdx, dIdx)}
-                                    className="w-full mt-1 py-2.5 border border-dashed border-white/15 rounded-xl text-gray-500 hover:text-primary hover:border-primary/40 text-xs flex items-center justify-center gap-1.5 transition-all">
-                                    <Plus size={13} /> Adicionar Exercício
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                    <div className="text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <p className="text-sm font-bold text-white">
+                          Semana {currentWeek.weekNumber} · {currentWeek.year}
+                        </p>
+                        {goalMet && <Crown size={13} className="text-primary" />}
                       </div>
-                    )}
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {new Date(currentWeek.startDate).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+                        {" – "}
+                        {new Date(currentWeek.endDate).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+                        <span className="ml-2 text-primary font-bold">{daysWithEx} dia{daysWithEx !== 1 ? "s" : ""}</span>
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => { setWeekIndex((i) => Math.max(i - 1, 0)); setExpandedDayIndex(null); }}
+                      disabled={weekIndex <= 0}
+                      className="p-1 text-gray-500 hover:text-white disabled:opacity-30 transition-colors"
+                    >
+                      <ChevronRight size={20} />
+                    </button>
                   </div>
-                );
-              })
-            )}
+
+                  {/* 7-day accordion */}
+                  <div className="space-y-2">
+                    {currentWeek.days.map((day, dIdx) => {
+                      const isDayExpanded = expandedDayIndex === dIdx;
+                      const hasEx = day.exercises.length > 0;
+                      const isWeekend = day.dayName === "Sábado" || day.dayName === "Domingo";
+                      const isToday = day.date === todayStr;
+                      return (
+                        <div key={day.date} className={`rounded-xl border transition-all ${isDayExpanded ? "border-primary/30 bg-background" : "border-white/5 bg-surface"}`}>
+                          <button
+                            onClick={() => setExpandedDayIndex(isDayExpanded ? null : dIdx)}
+                            className="w-full flex items-center justify-between p-3 rounded-xl transition-colors hover:bg-white/5"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                                hasEx ? "bg-primary text-black" : isToday ? "border border-primary/40 text-primary" : "bg-white/5 text-gray-600"
+                              }`}>
+                                {hasEx ? <Check size={14} /> : <Dumbbell size={13} />}
+                              </div>
+                              <div className="text-left">
+                                <div className="flex items-center gap-2">
+                                  <p className={`font-semibold text-sm ${isToday ? "text-primary" : isWeekend ? "text-gray-400" : "text-white"}`}>
+                                    {day.dayName}
+                                  </p>
+                                  {isToday && <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-bold">HOJE</span>}
+                                </div>
+                                <p className="text-[10px] text-gray-500">
+                                  {new Date(day.date + "T12:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+                                  {hasEx && <span className="text-primary ml-1 font-bold">· {day.exercises.length} exercício{day.exercises.length !== 1 ? "s" : ""}</span>}
+                                </p>
+                              </div>
+                            </div>
+                            {isDayExpanded ? <ChevronDown size={15} className="text-primary" /> : <ChevronRight size={15} className="text-gray-600" />}
+                          </button>
+
+                          {isDayExpanded && (
+                            <div className="px-3 pb-3 animate-fadeIn">
+                              <div className="flex justify-between items-center mb-2">
+                                <button onClick={() => copyLastWorkout(wIdx, dIdx)} className="text-xs flex items-center gap-1 text-primary hover:underline">
+                                  <Copy size={11} /> Copiar último treino
+                                </button>
+                                {hasEx && (
+                                  <button
+                                    onClick={() => setDebriefDay(day.dayName)}
+                                    className="text-xs flex items-center gap-1 text-gray-500 hover:text-primary transition-colors"
+                                  >
+                                    <Zap size={11} /> Debrief
+                                  </button>
+                                )}
+                              </div>
+                              {day.exercises.map((ex, exIdx) => (
+                                <ExerciseRow key={ex.id} ex={ex} exIdx={exIdx} wIdx={wIdx} dIdx={dIdx}
+                                  onUpdate={updateExercise} onRemove={removeExercise}
+                                  onView={(name, obs) => setViewingExercise({ name, obs })} />
+                              ))}
+                              <button onClick={() => addExercise(wIdx, dIdx)}
+                                className="w-full mt-1 py-2.5 border border-dashed border-white/15 rounded-xl text-gray-500 hover:text-primary hover:border-primary/40 text-xs flex items-center justify-center gap-1.5 transition-all">
+                                <Plus size={13} /> Adicionar Exercício
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
 

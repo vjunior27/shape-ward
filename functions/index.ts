@@ -525,6 +525,7 @@ export const chatWithTitan = onCall(
     // a meaningful HTTP error.
     cors: [
       "https://trainova.app",
+      "https://shape-ward.web.app",   // Firebase Hosting domain (projeto atual)
       "http://localhost:5173",
       "http://localhost:5174",
     ],

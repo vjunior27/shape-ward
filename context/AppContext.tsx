@@ -285,10 +285,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const data = JSON.parse(match[1]);
 
           if (data.type === "diet_plan") {
-            const dietData: DailyDiet["meals"] | null = Array.isArray(data.data)
+            const rawData: any[] | null = Array.isArray(data.data)
               ? data.data
               : Array.isArray(data) ? data : null;
-            if (dietData) {
+            if (rawData) {
+              // Sanitize to prevent undefined calories crashing the save
+              const dietData: DailyDiet["meals"] = rawData.map((meal: any) => ({
+                ...meal,
+                items: (Array.isArray(meal.items) ? meal.items : []).map((item: any) => ({
+                  ...item,
+                  calories: typeof item.calories === "number" ? item.calories : (parseFloat(item.calories) || 0),
+                })),
+              }));
               const newCurrentDays = generateDietDaysFromTemplate(dietData);
               newDietHistory = [
                 { id: "current", label: "Esta Semana", days: newCurrentDays },

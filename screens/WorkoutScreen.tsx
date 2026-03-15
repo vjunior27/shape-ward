@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle, BrainCircuit, Calendar, ChevronDown, ChevronRight, ChevronLeft, Check,
-  Copy, Crown, Dumbbell, ExternalLink, Info, Instagram, Mic, MicOff, MessageSquare,
+  Copy, Crown, Dumbbell, ExternalLink, Info, Mic, MicOff, MessageSquare,
   Plus, Trash2, TrendingUp, X, PlayCircle, Zap, Home,
 } from "lucide-react";
 import {
@@ -18,7 +18,6 @@ import { logEvent } from "../services/analytics";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const WEIGHT_OPTIONS = Array.from({ length: 41 }, (_, i) => (i * 5).toString());
 const REP_OPTIONS = Array.from({ length: 50 }, (_, i) => (i + 1).toString());
 const SET_OPTIONS = Array.from({ length: 10 }, (_, i) => (i + 1).toString());
 

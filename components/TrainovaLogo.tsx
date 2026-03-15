@@ -29,7 +29,7 @@ const slogans = {
 const sizes = {
   sm: { scale: 0.6, fontSize: 20, sloganSize: 7, gap: 18 },
   md: { scale: 0.85, fontSize: 30, sloganSize: 10, gap: 24 },
-  lg: { scale: 1.1, fontSize: 40, sloganSize: 13, gap: 32 },
+  lg: { scale: 1.1, fontSize: 40, sloganSize: 13, gap: 52 },
 };
 
 export const TrainovaLogo: FC<TrainovaLogoProps> = ({
@@ -74,7 +74,7 @@ export const TrainovaLogo: FC<TrainovaLogoProps> = ({
   }
 
   const width = 400;
-  const height = 200;
+  const height = 110 + s.gap + s.fontSize + s.sloganSize + 20;
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className={className} aria-label="Trainova">
       <g transform={`translate(${width / 2}, 70) scale(${s.scale})`}>

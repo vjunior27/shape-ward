@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle, BrainCircuit, Calendar, ChevronDown, ChevronRight, ChevronLeft, Check,
   Copy, Crown, Dumbbell, ExternalLink, Info, Mic, MicOff, MessageSquare,
@@ -754,10 +754,27 @@ export const WorkoutScreen: React.FC<WorkoutScreenProps> = ({
   const [dismissedPlateaus, setDismissedPlateaus] = useState<Set<string>>(new Set());
   const prevGoalRef = useRef(false);
 
+  // ── Midnight refresh — ensures new week appears at 00:00 without app reload ──
+  const [currentDateStr, setCurrentDateStr] = useState<string>(
+    () => new Date().toISOString().split("T")[0]
+  );
+  useEffect(() => {
+    const msToMidnight = () => {
+      const now = new Date();
+      const midnight = new Date(now);
+      midnight.setHours(24, 0, 0, 10); // 10ms after midnight to be safe
+      return midnight.getTime() - now.getTime();
+    };
+    const id = setTimeout(() => {
+      setCurrentDateStr(new Date().toISOString().split("T")[0]);
+    }, msToMidnight());
+    return () => clearTimeout(id);
+  }, [currentDateStr]); // re-schedules itself after each midnight tick
+
   // ── Contextual banners ───────────────────────────────────────────────────────
   const hour = new Date().getHours();
   const isOutsideGymHours = hour < 6 || hour > 22;
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = currentDateStr;
   const trainedToday = displayWeeks[0]?.days.some((d) => d.date === todayStr && d.exercises.length > 0) ?? false;
   const showEquipmentFreeBanner = isOutsideGymHours && !trainedToday;
 
@@ -771,7 +788,9 @@ export const WorkoutScreen: React.FC<WorkoutScreenProps> = ({
     const iter = new Date(startDate);
     const dayOfWeek = iter.getDay() || 7;
     if (dayOfWeek !== 1) iter.setDate(iter.getDate() - (dayOfWeek - 1));
-    const now = new Date();
+    // Use local-time "now" derived from currentDateStr to avoid UTC drift
+    // and to re-run when the date changes at midnight.
+    const now = new Date(currentDateStr + "T23:59:59");
     const weeks: WeeklyWorkoutPlan[] = [];
 
     while (iter <= now || weeks.length === 0) {
@@ -801,7 +820,7 @@ export const WorkoutScreen: React.FC<WorkoutScreenProps> = ({
     });
     setDisplayWeeks(weeks);
     if (!expandedWeekId && weeks.length > 0) setExpandedWeekId(weeks[0].id);
-  }, [startDate, history]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [startDate, history, currentDateStr]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Goal detection ───────────────────────────────────────────────────────────
   useEffect(() => {

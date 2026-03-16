@@ -200,6 +200,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (data.aiWorkoutPlan !== undefined)
             dispatch({ type: "SET_AI_WORKOUT_PLAN", payload: data.aiWorkoutPlan });
 
+          // Sync AI-calculated macro goals and hydration goal to the nutrition store
+          if (data.nutritionGoals) {
+            const { calories, protein, carbs, fat } = data.nutritionGoals;
+            if (calories > 0 || protein > 0)
+              nutritionStore.setGoals({ calories, protein, carbs, fat });
+          }
+          if (data.hydrationGoalMl && data.hydrationGoalMl >= 500) {
+            nutritionStore.setGoals({ water: data.hydrationGoalMl });
+          }
+
           if (initialLoad) {
             if (data.chatHistory) {
               dispatch({ type: "SET_CHAT_MESSAGES", payload: data.chatHistory });

@@ -600,20 +600,28 @@ function NutriTab({
     };
   }, [aiDay]);
 
-  // Goals from AI plan totals (all items, regardless of isConsumed), fallback to store defaults
-  const aiGoals = useMemo(() => {
+  // Goals from AI plan item-sum (fallback when no explicit goals saved yet)
+  const itemSumGoals = useMemo(() => {
     if (!aiDay) return null;
     const all = aiDay.meals.flatMap((m) => m.items);
     if (!all.length) return null;
+    const cal = Math.round(all.reduce((s, i) => s + (Number(i.calories) || 0), 0));
+    // Only use item-sum goals if they look realistic (> 500 kcal)
+    if (cal < 500) return null;
     return {
-      calories: Math.round(all.reduce((s, i) => s + (Number(i.calories) || 0), 0)),
+      calories: cal,
       protein:  Math.round(all.reduce((s, i) => s + (Number(i.protein)  || 0), 0)),
       carbs:    Math.round(all.reduce((s, i) => s + (Number(i.carbs)    || 0), 0)),
       fat:      Math.round(all.reduce((s, i) => s + (Number(i.fat)      || 0), 0)),
     };
   }, [aiDay]);
 
-  const ringGoals = aiGoals ?? goals;
+  // Priority: store goals (AI-set via Firestore) → item-sum → hardcoded defaults
+  // Store goals are updated by AppContext when TitanAI saves metasDiarias
+  const storeGoalsAreAiSet = goals.calories !== 2200 || goals.protein !== 150;
+  const ringGoals = storeGoalsAreAiSet
+    ? { calories: goals.calories, protein: goals.protein, carbs: goals.carbs, fat: goals.fat }
+    : (itemSumGoals ?? goals);
 
   // Combined: AI checked items + manually logged meals
   const consumedTotals = {

@@ -219,6 +219,8 @@ export function subscribeToUserData(
     dietHistory?: WeeklyDietPlan[];
     aiWorkoutPlan?: AIWorkoutDisplay | null;
     chatHistory?: Message[];
+    nutritionGoals?: { calories: number; protein: number; carbs: number; fat: number };
+    hydrationGoalMl?: number;
   }) => void
 ): () => void {
   return onSnapshot(doc(db, "users", uid), (snap) => {
@@ -229,6 +231,8 @@ export function subscribeToUserData(
       dietHistory: d.dietHistory,
       aiWorkoutPlan: d.aiWorkoutPlan ?? null,
       chatHistory: d.chatHistory,
+      nutritionGoals: d.nutritionGoals,
+      hydrationGoalMl: d.hydrationGoalMl,
     });
   });
 }

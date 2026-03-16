@@ -177,10 +177,10 @@ const TITAN_TOOLS = [
                       properties: {
                         name: { type: Type.STRING },
                         quantity: { type: Type.STRING, description: "Quantidade com unidade (ex: '150g', '1 unidade', '200ml')" },
-                        calories: { type: Type.NUMBER, description: "Calorias kcal por porção — OBRIGATÓRIO, número inteiro ≥ 0. Estime se necessário, nunca omita." },
-                        protein: { type: Type.NUMBER, description: "Proteínas em gramas por porção — OBRIGATÓRIO, número ≥ 0 com até 1 decimal. Estime se necessário." },
-                        carbs: { type: Type.NUMBER, description: "Carboidratos em gramas por porção — OBRIGATÓRIO, número ≥ 0 com até 1 decimal. Estime se necessário." },
-                        fat: { type: Type.NUMBER, description: "Gorduras em gramas por porção — OBRIGATÓRIO, número ≥ 0 com até 1 decimal. Estime se necessário." },
+                        calories: { type: Type.NUMBER, description: "Calorias kcal NESSA PORÇÃO ESPECÍFICA — OBRIGATÓRIO. Calcule baseado na quantidade (ex: frango 150g = 248 kcal). NUNCA use 0 em alimentos reais." },
+                        protein: { type: Type.NUMBER, description: "Proteínas em gramas NESSA PORÇÃO — OBRIGATÓRIO, ≥ 0. Estime realisticamente." },
+                        carbs: { type: Type.NUMBER, description: "Carboidratos em gramas NESSA PORÇÃO — OBRIGATÓRIO, ≥ 0. Estime realisticamente." },
+                        fat: { type: Type.NUMBER, description: "Gorduras em gramas NESSA PORÇÃO — OBRIGATÓRIO, ≥ 0. Estime realisticamente." },
                       },
                       required: ["name", "quantity", "calories", "protein", "carbs", "fat"],
                     },
@@ -189,8 +189,23 @@ const TITAN_TOOLS = [
                 required: ["time", "name", "items"],
               },
             },
+            metasDiarias: {
+              type: Type.OBJECT,
+              description: "Metas diárias de macros calculadas para ESTE usuário com base no peso, objetivo e nível de atividade. OBRIGATÓRIO quando gerar uma dieta.",
+              properties: {
+                calories: { type: Type.NUMBER, description: "Meta calórica diária em kcal (ex: 3500 para bulking 88kg)" },
+                protein: { type: Type.NUMBER, description: "Meta de proteína diária em gramas (ex: 200 para 88kg hipertrofia)" },
+                carbs: { type: Type.NUMBER, description: "Meta de carboidratos diários em gramas" },
+                fat: { type: Type.NUMBER, description: "Meta de gorduras diárias em gramas" },
+              },
+              required: ["calories", "protein", "carbs", "fat"],
+            },
+            metaHidratacao: {
+              type: Type.NUMBER,
+              description: "Meta de ingestão de água em ml/dia calculada para este usuário. Fórmula: 35ml × peso_kg + 500ml por hora de treino. Ex: 88kg que treina 1h = 88×35+500 = 3580 → arredondar para 3500.",
+            },
           },
-          required: ["refeicoes"],
+          required: ["refeicoes", "metasDiarias"],
         },
       },
     ],
@@ -273,8 +288,31 @@ async function executeFunctionCall(
         { id: "current", label: "Esta Semana", days: newDays },
         { id: "last", label: "Semana Passada", days: prevCurrent?.days ?? [] },
       ];
-      await db.collection("users").doc(uid).set({ dietHistory: newDietHistory }, { merge: true });
-      console.info(`[Agent] atualizarMetasNutricao — uid: ${uid}, meals/day: ${refeicoes.length}`);
+
+      // Build extra fields to persist alongside dietHistory
+      const extraFields: Record<string, any> = { dietHistory: newDietHistory };
+
+      // Explicit daily macro goals (set by AI based on user profile)
+      if (args.metasDiarias && typeof args.metasDiarias === "object") {
+        const toInt = (v: any) => { const n = parseInt(v); return isFinite(n) && n >= 0 ? n : 0; };
+        extraFields.nutritionGoals = {
+          calories: toInt(args.metasDiarias.calories),
+          protein:  toInt(args.metasDiarias.protein),
+          carbs:    toInt(args.metasDiarias.carbs),
+          fat:      toInt(args.metasDiarias.fat),
+        };
+      }
+
+      // Hydration goal (ml/day, calculated by AI)
+      if (args.metaHidratacao != null) {
+        const goalMl = parseInt(args.metaHidratacao);
+        if (isFinite(goalMl) && goalMl >= 500) {
+          extraFields.hydrationGoalMl = goalMl;
+        }
+      }
+
+      await db.collection("users").doc(uid).set(extraFields, { merge: true });
+      console.info(`[Agent] atualizarMetasNutricao — uid: ${uid}, meals/day: ${refeicoes.length}, goals: ${JSON.stringify(extraFields.nutritionGoals ?? null)}, hydration: ${extraFields.hydrationGoalMl ?? "n/a"}`);
       return { success: true, message: `Plano alimentar atualizado com ${refeicoes.length} refeição(ões) por dia.` };
     }
 
@@ -511,6 +549,29 @@ CAPACIDADES TÉCNICAS:
 3. Nutrição: TDEE, déficit/superávit, timing de macros, suplementação baseada em evidências.
 4. Composição corporal: FFMI, cutting/bulking, recomposição.
 5. Saúde geral: sono, estresse, hidratação, prevenção de doenças crônicas.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CÁLCULO OBRIGATÓRIO DE MACROS EM DIETAS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Quando usar a ferramenta atualizarMetasNutricao, você DEVE:
+
+1. CALCULAR MACROS DE CADA ALIMENTO INDIVIDUALMENTE com base na quantidade:
+   - Frango Grelhado 150g → calories: 248, protein: 37, carbs: 0, fat: 10
+   - Arroz Integral 200g (cozido) → calories: 232, protein: 5, carbs: 48, fat: 2
+   - Ovo Cozido 2 unidades → calories: 156, protein: 13, carbs: 1, fat: 11
+   - Aveia 80g → calories: 307, protein: 11, carbs: 53, fat: 6
+   - Batata Doce 200g (cozida) → calories: 180, protein: 4, carbs: 41, fat: 0
+   NUNCA coloque calories: 0 em alimentos reais. SEMPRE estime realisticamente.
+
+2. CALCULAR METAS DIÁRIAS (metasDiarias) baseadas no perfil do usuário:
+   - Bulking/Hipertrofia: ~35-40 kcal/kg, 1.8-2.2g proteína/kg, carbs 50-55% das calorias, fat 25-30%
+   - Cutting/Emagrecimento: ~25-30 kcal/kg, 2.0-2.4g proteína/kg, carbs moderados, fat 20-25%
+   - Manutenção: ~30-35 kcal/kg, 1.6-2.0g proteína/kg
+   Exemplo para 88kg bulking: calories 3500, protein 200, carbs 400, fat 95
+
+3. CALCULAR META DE HIDRATAÇÃO (metaHidratacao) em ml:
+   Fórmula: 35ml × peso_kg + 500ml por hora de treino por dia
+   Exemplo 88kg, 1h treino: 88×35 + 500 = 3580 → arredondar para 3500
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PODERES DE AGENTE — FERRAMENTAS DE AÇÃO

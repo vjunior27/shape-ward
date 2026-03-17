@@ -83,6 +83,50 @@ function tryParseWorkoutJSON(text: string): WorkoutJSON | null {
   }
 }
 
+// ─── Markdown custom renderers ────────────────────────────────────────────────
+
+const markdownComponents: Record<string, React.FC<any>> = {
+  table({ children }) {
+    return (
+      <div className="overflow-x-auto my-3 rounded-lg">
+        <table className="w-full min-w-[400px] border-collapse text-[13px]">
+          {children}
+        </table>
+      </div>
+    );
+  },
+  th({ children }) {
+    return (
+      <th className="bg-[#0d0d14] text-[#00FF94] text-left px-3 py-2 font-medium text-[12px] whitespace-nowrap border-b border-[#1E1E2A]">
+        {children}
+      </th>
+    );
+  },
+  td({ children }) {
+    return (
+      <td className="px-3 py-2 border-b border-[#1E1E2A] text-[#FAFAFA] align-top">
+        {children}
+      </td>
+    );
+  },
+  pre({ children }) {
+    return (
+      <pre className="bg-[#0d0d14] rounded-lg p-3 overflow-x-auto text-[12px] w-full my-2">
+        {children}
+      </pre>
+    );
+  },
+  code({ children, className }: any) {
+    const isBlock = Boolean(className);
+    if (isBlock) return <code className={className}>{children}</code>;
+    return (
+      <code className="bg-[#0d0d14] px-1.5 py-0.5 rounded text-[#00FF94] text-[12px]">
+        {children}
+      </code>
+    );
+  },
+};
+
 // ─── Message renderer ─────────────────────────────────────────────────────────
 
 function MessageContent({
@@ -102,8 +146,10 @@ function MessageContent({
     return (
       <div className="space-y-3">
         {textWithoutJson && (
-          <div className="markdown-content prose prose-invert prose-sm max-w-none break-words overflow-hidden">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{textWithoutJson}</ReactMarkdown>
+          <div className="markdown-content prose prose-invert prose-sm max-w-none break-words">
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+              {textWithoutJson}
+            </ReactMarkdown>
           </div>
         )}
         <WorkoutCard
@@ -115,8 +161,10 @@ function MessageContent({
   }
 
   return (
-    <div className="markdown-content prose prose-invert prose-sm max-w-none break-words overflow-hidden">
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
+    <div className="markdown-content prose prose-invert prose-sm max-w-none break-words">
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+        {msg.text}
+      </ReactMarkdown>
     </div>
   );
 }
@@ -198,29 +246,38 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       <div className="flex-1 overflow-y-auto p-4 space-y-6 z-0">
         {messages.map((msg) => {
           const isUser = msg.role === 'user';
-          return (
-            <div
-              key={msg.id}
-              className={`flex ${isUser ? 'justify-end' : 'justify-start'} animate-fadeIn`}
-            >
-              <div className={`flex max-w-[85%] md:max-w-[75%] min-w-0 ${isUser ? 'flex-row-reverse' : 'flex-row'} items-end gap-2.5`}>
-                <div className={`
-                  w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 shadow-lg
-                  ${isUser
-                    ? 'glass border border-white/10'
-                    : 'bg-gradient-to-br from-[#00FF94] to-[#00CC76] text-black shadow-[0_0_12px_rgba(0,255,148,0.3)]'}
-                `}>
-                  {isUser ? <User size={18} /> : <Bot size={18} />}
-                </div>
 
-                <div className={`
-                  min-w-0 overflow-hidden p-4 md:p-5 text-sm leading-relaxed shadow-xl transition-all
-                  ${isUser
-                    ? 'bg-primary/8 text-emerald-50 rounded-3xl rounded-tr-md border border-primary/15 backdrop-blur-sm'
-                    : 'glass-card text-zinc-100 rounded-3xl rounded-tl-md'}
-                `}>
+          // ── User message: balão alinhado à direita ──────────────────────────
+          if (isUser) {
+            return (
+              <div key={msg.id} className="flex justify-end animate-fadeIn">
+                <div className="flex flex-row-reverse items-end gap-2.5 max-w-[85%] md:max-w-[75%] min-w-0">
+                  <div className="w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 shadow-lg glass border border-white/10">
+                    <User size={18} />
+                  </div>
+                  <div className="min-w-0 p-4 text-sm leading-relaxed shadow-xl bg-primary/8 text-emerald-50 rounded-3xl rounded-tr-md border border-primary/15 backdrop-blur-sm">
+                    <MessageContent msg={msg} onSendMessage={onSendMessage} />
+                    <div className="flex items-center gap-1.5 mt-2 opacity-30 justify-end">
+                      <span className="text-[10px]">
+                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          // ── AI message: sem balão, largura total ────────────────────────────
+          return (
+            <div key={msg.id} className="flex justify-start w-full animate-fadeIn">
+              <div className="flex flex-row items-start gap-3 w-full min-w-0">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 bg-gradient-to-br from-[#00FF94] to-[#00CC76] text-black shadow-[0_0_12px_rgba(0,255,148,0.3)]">
+                  <Bot size={16} />
+                </div>
+                <div className="flex-1 min-w-0 text-sm leading-relaxed text-zinc-100">
                   <MessageContent msg={msg} onSendMessage={onSendMessage} />
-                  <div className={`flex items-center gap-1.5 mt-2 opacity-30 ${isUser ? 'justify-end' : 'justify-start'}`}>
+                  <div className="flex items-center gap-1.5 mt-2 opacity-30">
                     <span className="text-[10px]">
                       {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
@@ -232,20 +289,18 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         })}
 
         {isLoading && (
-          <div className="flex justify-start animate-fadeIn">
-            <div className="flex flex-row items-start gap-2.5">
-              <div className="w-9 h-9 rounded-2xl glass border border-primary/20 text-primary flex items-center justify-center shadow-lg">
-                <BrainCircuit size={18} className="animate-pulse" />
+          <div className="flex justify-start w-full animate-fadeIn">
+            <div className="flex flex-row items-start gap-3 w-full min-w-0">
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 bg-gradient-to-br from-[#00FF94] to-[#00CC76] text-black shadow-[0_0_12px_rgba(0,255,148,0.3)]">
+                <BrainCircuit size={15} className="animate-pulse" />
               </div>
-              <div className="glass-card px-5 py-4 rounded-3xl rounded-tl-md shadow-xl">
-                <div className="flex items-center gap-2">
-                  <div className="flex gap-1">
-                    <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]" />
-                    <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]" />
-                    <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" />
-                  </div>
-                  <span className="text-xs text-primary/80 font-medium ml-1">TitanAI está digitando...</span>
+              <div className="flex items-center gap-2 mt-2">
+                <div className="flex gap-1">
+                  <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]" />
+                  <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]" />
+                  <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" />
                 </div>
+                <span className="text-xs text-primary/80 font-medium">TitanAI está digitando...</span>
               </div>
             </div>
           </div>

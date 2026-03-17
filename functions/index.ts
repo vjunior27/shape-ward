@@ -891,3 +891,125 @@ export const chatWithTitan = onCall(
   }
 );
 
+// ─── Silent plan generator — called after profile save ────────────────────────
+// Runs the same agentic loop as chatWithTitan but:
+// - Does not require user text input
+// - Does not read/write chat history
+// - Does not enforce the per-day rate limit (triggered by profile save, not manual input)
+// - Returns { success: true } only
+export const generateFullPlan = onCall(
+  {
+    secrets: [geminiApiKey],
+    enforceAppCheck: false,
+    cors: [
+      "https://trainova.app",
+      "https://shape-ward.web.app",
+      "http://localhost:5173",
+      "http://localhost:5174",
+    ],
+    timeoutSeconds: 180,
+    memory: "512MiB",
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "O usuário deve estar autenticado.");
+    }
+
+    const uid = request.auth.uid;
+    console.info(`[generateFullPlan] Start — uid: ${uid}`);
+
+    const db = admin.firestore();
+
+    // Read user profile
+    const userDoc = await db.collection("users").doc(uid).get();
+    if (!userDoc.exists) {
+      throw new HttpsError("not-found", "Perfil não encontrado.");
+    }
+    const userData = userDoc.data() ?? {};
+
+    // Build a short, directive prompt — Gemini will call both tools automatically
+    const name    = sanitizeForPrompt(userData.name, 60);
+    const weight  = sanitizeForPrompt(userData.weight, 10);
+    const height  = sanitizeForPrompt(userData.height, 10);
+    const age     = sanitizeForPrompt(userData.age, 5);
+    const wpw     = sanitizeForPrompt(userData.workoutsPerWeek, 5);
+    const obj     = sanitizeForPrompt(userData.objective, 200);
+    const rotina  = sanitizeForPrompt(userData.rotinaDiaria || userData.routine, 300);
+    const lesoes  = sanitizeForPrompt(userData.historicoLesoes, 400);
+    const sex     = userData.sex === "male" ? "Masculino" : "Feminino";
+    const fatPct  = sanitizeForPrompt(userData.fatPercentage, 10);
+
+    const silentPrompt =
+`GERE O PLANO COMPLETO AGORA para ${name} usando as duas ferramentas.
+
+PERFIL:
+- Nome: ${name} | Sexo: ${sex} | Idade: ${age} anos
+- Peso: ${weight}kg | Altura: ${height}cm | BF: ${fatPct}%
+- Objetivo: ${obj}
+- Treinos/Semana: ${wpw}
+- Rotina: ${rotina || "Não informada"}
+${lesoes ? `- ⚠️ Lesões/Condições: ${lesoes}` : ""}
+
+EXECUTE OBRIGATORIAMENTE AS DUAS FERRAMENTAS AGORA:
+
+1. atualizarMetasNutricao:
+   - 5-7 refeições por dia com macros realistas por alimento
+   - metasDiarias calculadas para este perfil (ex bulking 88kg: calories 3500, protein 200, carbs 400, fat 95)
+   - metaHidratacao = 35 × ${weight || 80} + 500ml/hora de treino
+
+2. atualizarPlanilhaTreino:
+   - ${wpw || 4} dias de treino
+   - Distribuir grupos musculares sem repetir em dias consecutivos
+   - 4-6 exercícios por sessão com séries e reps para o objetivo ${obj}
+   ${lesoes ? `- Respeite as restrições: ${lesoes}` : ""}
+
+Chame as ferramentas agora.`;
+
+    const apiKey = geminiApiKey.value();
+    if (!apiKey) throw new HttpsError("internal", "GEMINI_API_KEY ausente.");
+
+    const ai = new GoogleGenAI({ apiKey });
+
+    const conversationContents: any[] = [{ role: "user", parts: [{ text: silentPrompt }] }];
+
+    const geminiConfig: any = {
+      tools: TITAN_TOOLS,
+      thinkingConfig: { thinkingBudget: 0 },
+    };
+
+    const MAX_AGENT_ROUNDS = 4;
+    try {
+      for (let round = 0; round < MAX_AGENT_ROUNDS; round++) {
+        console.info(`[generateFullPlan] Round ${round + 1} — uid: ${uid}`);
+        const response = await ai.models.generateContent({
+          model: MODEL_NAME,
+          contents: conversationContents,
+          config: geminiConfig,
+        });
+
+        let functionCalls: any[] | undefined;
+        try { functionCalls = response.functionCalls; } catch { functionCalls = undefined; }
+
+        if (!functionCalls?.length) break;
+
+        const modelParts = response.candidates?.[0]?.content?.parts ?? [];
+        conversationContents.push({ role: "model", parts: modelParts });
+
+        const toolResponseParts: any[] = [];
+        for (const fc of functionCalls) {
+          console.info(`[generateFullPlan] Tool: ${fc.name}`);
+          const result = await executeFunctionCall(fc.name, fc.args ?? {}, uid, db);
+          toolResponseParts.push({ functionResponse: { name: fc.name, response: result } });
+        }
+        conversationContents.push({ role: "user", parts: toolResponseParts });
+      }
+    } catch (err: any) {
+      console.error("[generateFullPlan] Gemini error:", err);
+      throw new HttpsError("internal", `Erro ao gerar plano: ${err.message ?? "Erro desconhecido"}`);
+    }
+
+    console.info(`[generateFullPlan] Done — uid: ${uid}`);
+    return { success: true };
+  }
+);
+

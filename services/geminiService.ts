@@ -29,5 +29,21 @@ export const sendMessageToGemini = async (text: string, hydration?: HydrationCon
   }
 };
 
+/**
+ * Calls the silent generateFullPlan Cloud Function.
+ * Triggered after profile save — generates nutrition, workout and hydration
+ * plan silently without adding any messages to chat.
+ */
+export const callGenerateFullPlan = async (): Promise<void> => {
+  try {
+    const fn = httpsCallable(functions, "generateFullPlan", { timeout: 180_000 });
+    await fn({});
+  } catch (error: any) {
+    // Non-fatal: plans can still be requested manually via chat
+    console.warn("[generateFullPlan] Failed:", error?.message ?? error);
+    throw error;
+  }
+};
+
 // No-op kept for backward-compat with existing call sites
 export const initializeChat = async () => Promise.resolve();

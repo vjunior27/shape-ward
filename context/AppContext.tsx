@@ -15,7 +15,7 @@ import {
   WeeklyDietPlan,
   WeeklyWorkoutPlan,
 } from "../types";
-import { sendMessageToGemini, initializeChat } from "../services/geminiService";
+import { sendMessageToGemini, initializeChat, callGenerateFullPlan } from "../services/geminiService";
 import { useNutritionStore } from "../stores/useNutritionStore";
 import {
   getUserProfile,
@@ -487,10 +487,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       console.error("Erro ao atualizar contexto do chat", e);
     }
 
-    // Trigger analysis popup if the user has health docs or basic metrics
-    if ((profile.documentosSaude?.length ?? 0) > 0 || (profile.weight && profile.workoutsPerWeek)) {
-      dispatch({ type: "SET_ANALYSIS_PENDING", payload: true });
-    }
+    // Navigate to chat immediately — no analysis popup
     dispatch({ type: "SET_SCREEN", payload: "chat" });
 
     if (isDemo) {
@@ -504,6 +501,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         files: (profile.files ?? []).map(({ name, type, mimeType }) => ({ name, type, mimeType })),
       };
       await saveUserProfile(user.uid, profileForDb);
+
+      // Silently generate full plan (nutrition + workout + hydration) if profile is complete
+      if (profile.weight && profile.objective && profile.workoutsPerWeek) {
+        // Show an informational message in chat (not sent to AI)
+        const infoMsg: Message = {
+          id: `plan-gen-${Date.now()}`,
+          role: "model",
+          text: "🔄 Perfil salvo! Montando seu **plano nutricional**, **treino semanal** e **meta de hidratação** personalizados... As abas serão atualizadas automaticamente.",
+          timestamp: Date.now(),
+        };
+        dispatch({ type: "SET_CHAT_MESSAGES", payload: [...stateRef.current.chatMessages, infoMsg] });
+
+        // Fire-and-forget — subscribeToUserData will pick up Firestore changes
+        callGenerateFullPlan()
+          .then(() => {
+            const doneMsg: Message = {
+              id: `plan-done-${Date.now()}`,
+              role: "model",
+              text: "✅ Pronto! Seu **plano personalizado** está disponível nas abas **Treinos**, **Nutrição** e **Hidra**.",
+              timestamp: Date.now(),
+            };
+            dispatch({ type: "SET_CHAT_MESSAGES", payload: [...stateRef.current.chatMessages, doneMsg] });
+          })
+          .catch((err) => {
+            console.warn("[Profile] Plan generation failed silently:", err);
+          });
+      }
     }
   }, []);
 

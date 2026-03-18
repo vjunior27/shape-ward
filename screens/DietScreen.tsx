@@ -1,16 +1,19 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { WeeklyDietPlan, DailyDiet, DietMeal, NutritionMeal } from '../types';
+import { WeeklyDietPlan, DailyDiet, DietMeal, DietItem, NutritionMeal } from '../types';
 import {
   Check, Plus, Trash2, Utensils, Clock, X,
   Search, Droplets, Pencil, Undo2, ChevronLeft, ChevronRight as ChevronRightIcon,
+  Bot, Loader2,
 } from 'lucide-react';
 import { useNutritionStore } from '../stores/useNutritionStore';
 import { useStreakStore, XP_VALUES } from '../stores/useStreakStore';
-import { useDailyNutrition, useSearchFoods, useSaveMeal } from '../hooks/useNutritionQueries';
+import { useDailyNutrition, useSaveMeal } from '../hooks/useNutritionQueries';
 import { useUserStore } from '../stores/useUserStore';
 import {
   BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, Tooltip,
 } from 'recharts';
+import { searchFood, calculateMacros, TacoFood } from '../utils/searchFood';
+import { callEstimateMacros } from '../services/geminiService';
 
 interface DietScreenProps {
   dietHistory: WeeklyDietPlan[];
@@ -58,81 +61,301 @@ function MacroRing({
   );
 }
 
-// ─── Add Food Modal ───────────────────────────────────────────────────────────
+// ─── Add / Edit Food Modal (TACO) ─────────────────────────────────────────────
 
-function AddFoodModal({
-  mealType, userId, date, onClose,
-}: {
-  mealType: NutritionMeal['type']; userId: string; date: string; onClose: () => void;
-}) {
-  const [query, setQuery] = useState('');
-  const { data: results = [], isFetching } = useSearchFoods(query);
-  const saveMeal = useSaveMeal();
+const UNITS = ['g', 'ml', 'un', 'fatias', 'colheres'] as const;
+type FoodUnit = typeof UNITS[number];
 
-  const handleAdd = (food: typeof results[number]) => {
-    const meal: NutritionMeal = {
-      id: crypto.randomUUID(),
-      userId,
-      date,
-      type: mealType,
-      entries: [{
-        id: crypto.randomUUID(),
-        foodItemId: food.id,
-        foodName: food.name,
-        quantity: food.servingSize,
-        servingUnit: food.servingUnit,
-        calories: food.calories,
-        protein: food.protein,
-        carbs: food.carbs,
-        fat: food.fat,
-      }],
-      totalCalories: food.calories,
-      totalProtein: food.protein,
-      totalCarbs: food.carbs,
-      totalFat: food.fat,
-      createdAt: new Date().toISOString(),
-    };
-    saveMeal.mutate(meal, { onSuccess: onClose });
+// Approximate gram conversions for non-gram units
+function toGrams(quantity: number, unit: FoodUnit): number {
+  if (unit === 'g' || unit === 'ml') return quantity;
+  if (unit === 'un') return quantity * 60;
+  if (unit === 'fatias') return quantity * 30;
+  if (unit === 'colheres') return quantity * 15;
+  return quantity;
+}
+
+interface AddFoodModalProps {
+  onClose: () => void;
+  /** Called with the final DietItem to add/update */
+  onConfirm: (item: DietItem) => void;
+  /** Pre-filled when editing an existing item */
+  initial?: DietItem;
+}
+
+function AddFoodModal({ onClose, onConfirm, initial }: AddFoodModalProps) {
+  const [query, setQuery]               = useState(initial?.name ?? '');
+  const [results, setResults]           = useState<TacoFood[]>([]);
+  const [selected, setSelected]         = useState<TacoFood | null>(null);
+  const [quantity, setQuantity]         = useState(initial ? parseFloat(initial.quantity) || 100 : 100);
+  const [unit, setUnit]                 = useState<FoodUnit>('g');
+  const [manualMode, setManualMode]     = useState(false);
+  const [manualName, setManualName]     = useState(initial?.name ?? '');
+  const [mCal, setMCal]                 = useState(initial?.calories ?? 0);
+  const [mProt, setMProt]               = useState(initial?.protein ?? 0);
+  const [mCarbs, setMCarbs]             = useState(initial?.carbs ?? 0);
+  const [mFat, setMFat]                 = useState(initial?.fat ?? 0);
+  const [estimating, setEstimating]     = useState(false);
+
+  // Reactive TACO search
+  useEffect(() => {
+    if (manualMode || selected) return;
+    setResults(searchFood(query));
+  }, [query, manualMode, selected]);
+
+  // If editing an existing item with no TACO match, start in manual mode
+  useEffect(() => {
+    if (initial && !selected) {
+      setManualMode(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const grams = toGrams(quantity, unit);
+  const macros = selected ? calculateMacros(selected, grams) : null;
+
+  const handleSelectFood = (food: TacoFood) => {
+    setSelected(food);
+    setQuery(food.name);
+    setResults([]);
   };
+
+  const handleAIEstimate = async () => {
+    if (!manualName.trim()) return;
+    setEstimating(true);
+    try {
+      const est = await callEstimateMacros(manualName, quantity, unit);
+      setMCal(est.calories);
+      setMProt(est.protein);
+      setMCarbs(est.carbs);
+      setMFat(est.fat);
+    } catch {
+      // silently fail — user can fill manually
+    } finally {
+      setEstimating(false);
+    }
+  };
+
+  const handleConfirm = () => {
+    if (manualMode) {
+      onConfirm({
+        id: initial?.id ?? crypto.randomUUID(),
+        name: manualName.trim() || 'Alimento',
+        quantity: `${quantity}${unit}`,
+        calories: mCal,
+        protein:  mProt,
+        carbs:    mCarbs,
+        fat:      mFat,
+        isConsumed: initial?.isConsumed ?? false,
+      });
+    } else if (selected && macros) {
+      onConfirm({
+        id: initial?.id ?? crypto.randomUUID(),
+        name: selected.name,
+        quantity: `${quantity}${unit}`,
+        calories: macros.calories,
+        protein:  macros.protein,
+        carbs:    macros.carbs,
+        fat:      macros.fat,
+        isConsumed: initial?.isConsumed ?? false,
+      });
+    }
+  };
+
+  const canConfirm = manualMode
+    ? manualName.trim().length >= 1
+    : selected !== null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end" onClick={onClose}>
       <div
-        className="w-full bg-[#12121a] border-t border-[#1E1E2A] rounded-t-3xl p-5 max-h-[75vh] flex flex-col animate-slideUp"
+        className="w-full bg-[#12121a] border-t border-[#1E1E2A] rounded-t-3xl p-5 max-h-[90vh] flex flex-col animate-slideUp"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="w-10 h-1 bg-[#1E1E2A] rounded-full mx-auto mb-4" />
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-white font-bold">Adicionar alimento</h3>
+
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-white font-bold">{initial ? 'Editar alimento' : 'Adicionar alimento'}</h3>
           <button onClick={onClose} className="p-1 text-[#A1A1AA] hover:text-white"><X size={18} /></button>
         </div>
-        <div className="relative mb-3">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#52525B]" />
-          <input
-            type="text" value={query} onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar alimento..." autoFocus
-            className="w-full bg-[#1a1a28] border border-[#1E1E2A] rounded-xl pl-9 pr-4 py-2.5 text-white text-sm placeholder-[#52525B] focus:outline-none focus:border-primary/40"
-          />
-        </div>
-        <div className="flex-1 overflow-y-auto space-y-2">
-          {isFetching && <p className="text-[#A1A1AA] text-sm text-center py-4">Buscando...</p>}
-          {!isFetching && query.length >= 2 && results.length === 0 && (
-            <p className="text-[#52525B] text-sm text-center py-4">Nenhum resultado para "{query}"</p>
-          )}
-          {results.map((food) => (
-            <button
-              key={food.id}
-              onClick={() => handleAdd(food)}
-              className="w-full flex items-center justify-between bg-[#1a1a28] border border-[#1E1E2A] rounded-xl p-3 hover:border-primary/30 transition-colors text-left"
-            >
-              <div>
-                <p className="text-white text-sm font-medium">{food.name}</p>
-                <p className="text-[#52525B] text-xs">{food.servingSize}{food.servingUnit} · P:{food.protein}g · C:{food.carbs}g · G:{food.fat}g</p>
+
+        <div className="flex-1 overflow-y-auto space-y-3">
+          {!manualMode ? (
+            <>
+              {/* Search field */}
+              <div className="relative">
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#52525B]" />
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => { setQuery(e.target.value); setSelected(null); }}
+                  placeholder="Buscar no TACO (ex: frango grelhado)..."
+                  autoFocus
+                  className="w-full bg-[#1a1a28] border border-[#1E1E2A] rounded-xl pl-9 pr-4 py-2.5 text-white text-sm placeholder-[#52525B] focus:outline-none focus:border-primary/40"
+                />
               </div>
-              <p className="text-primary font-bold text-sm shrink-0 ml-3">{food.calories} kcal</p>
-            </button>
-          ))}
+
+              {/* Dropdown results */}
+              {!selected && results.length > 0 && (
+                <div className="max-h-48 overflow-y-auto space-y-1.5">
+                  {results.map((food) => (
+                    <button
+                      key={food.id}
+                      onClick={() => handleSelectFood(food)}
+                      className="w-full text-left bg-[#1a1a28] border border-[#1E1E2A] rounded-xl p-3 hover:border-primary/30 transition-colors"
+                    >
+                      <p className="text-white text-sm font-medium leading-tight">{food.name}</p>
+                      <p className="text-[#52525B] text-xs mt-0.5">
+                        {food.per100g.calories} kcal · P:{food.per100g.protein}g · C:{food.per100g.carbs}g · G:{food.per100g.fat}g
+                        <span className="ml-1 text-[#3f3f46]">por 100g</span>
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Not found hint */}
+              {query.length >= 3 && results.length === 0 && !selected && (
+                <button
+                  onClick={() => { setManualMode(true); setManualName(query); }}
+                  className="w-full py-2 text-sm text-[#00FF94] border border-[#00FF94]/20 rounded-xl hover:bg-[#00FF94]/5 transition-colors"
+                >
+                  Não encontrou? Adicionar manualmente
+                </button>
+              )}
+
+              {/* Selected food: quantity + macros preview */}
+              {selected && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={quantity}
+                      onChange={(e) => setQuantity(Math.max(1, Number(e.target.value) || 1))}
+                      className="flex-1 p-3 bg-[#1a1a28] border border-[#1E1E2A] rounded-xl text-center text-[#00FF94] text-lg font-bold focus:outline-none focus:border-primary/40"
+                    />
+                    <select
+                      value={unit}
+                      onChange={(e) => setUnit(e.target.value as FoodUnit)}
+                      className="p-3 bg-[#1a1a28] border border-[#1E1E2A] rounded-xl text-white text-sm focus:outline-none"
+                    >
+                      {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                    </select>
+                    <button
+                      onClick={() => { setSelected(null); setQuery(''); }}
+                      className="p-2.5 bg-[#1a1a28] border border-[#1E1E2A] rounded-xl text-[#A1A1AA] hover:text-white"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  {macros && (
+                    <div className="grid grid-cols-4 gap-2 p-3 bg-[#0d0d14] rounded-xl text-center">
+                      <div>
+                        <p className="text-[#00FF94] font-bold text-base">{macros.calories}</p>
+                        <p className="text-[#52525B] text-[10px]">kcal</p>
+                      </div>
+                      <div>
+                        <p className="text-white font-bold text-base">{macros.protein}</p>
+                        <p className="text-[#52525B] text-[10px]">prot g</p>
+                      </div>
+                      <div>
+                        <p className="text-white font-bold text-base">{macros.carbs}</p>
+                        <p className="text-[#52525B] text-[10px]">carbs g</p>
+                      </div>
+                      <div>
+                        <p className="text-white font-bold text-base">{macros.fat}</p>
+                        <p className="text-[#52525B] text-[10px]">gord g</p>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          ) : (
+            /* Manual mode */
+            <>
+              <input
+                type="text"
+                value={manualName}
+                onChange={(e) => setManualName(e.target.value)}
+                placeholder="Nome do alimento"
+                autoFocus
+                className="w-full p-3 bg-[#1a1a28] border border-[#1E1E2A] rounded-xl text-white text-sm placeholder-[#52525B] focus:outline-none focus:border-primary/40"
+              />
+
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={quantity}
+                  onChange={(e) => setQuantity(Math.max(1, Number(e.target.value) || 1))}
+                  className="flex-1 p-3 bg-[#1a1a28] border border-[#1E1E2A] rounded-xl text-center text-[#00FF94] font-bold focus:outline-none focus:border-primary/40"
+                />
+                <select
+                  value={unit}
+                  onChange={(e) => setUnit(e.target.value as FoodUnit)}
+                  className="p-3 bg-[#1a1a28] border border-[#1E1E2A] rounded-xl text-white text-sm focus:outline-none"
+                >
+                  {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-4 gap-2">
+                {(
+                  [
+                    { label: 'kcal', val: mCal, set: setMCal },
+                    { label: 'prot g', val: mProt, set: setMProt },
+                    { label: 'carbs g', val: mCarbs, set: setMCarbs },
+                    { label: 'gord g', val: mFat, set: setMFat },
+                  ] as const
+                ).map(({ label, val, set }) => (
+                  <div key={label} className="flex flex-col gap-1">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={val}
+                      onChange={(e) => (set as (v: number) => void)(Number(e.target.value) || 0)}
+                      className="p-2 bg-[#1a1a28] border border-[#1E1E2A] rounded-xl text-center text-white text-sm focus:outline-none focus:border-primary/40"
+                    />
+                    <p className="text-[#52525B] text-[10px] text-center">{label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* TitanAI estimate button */}
+              <button
+                onClick={handleAIEstimate}
+                disabled={estimating || !manualName.trim()}
+                className="w-full py-2.5 border border-[#00FF94]/25 rounded-xl text-sm text-[#00FF94] flex items-center justify-center gap-2 hover:bg-[#00FF94]/5 transition-colors disabled:opacity-50"
+              >
+                {estimating ? (
+                  <><Loader2 size={14} className="animate-spin" />Estimando...</>
+                ) : (
+                  <><Bot size={14} />TitanAI: estimar macros automaticamente</>
+                )}
+              </button>
+
+              <button
+                onClick={() => setManualMode(false)}
+                className="w-full py-2 text-xs text-[#52525B] hover:text-[#A1A1AA]"
+              >
+                ← Buscar no TACO
+              </button>
+            </>
+          )}
         </div>
+
+        {/* Confirm button */}
+        <button
+          onClick={handleConfirm}
+          disabled={!canConfirm}
+          className="mt-4 w-full py-3.5 bg-[#00FF94] text-[#0a0a0f] rounded-2xl font-bold text-sm hover:bg-[#00cc76] transition-colors disabled:opacity-40"
+        >
+          {initial ? 'Salvar alterações' : 'Adicionar'}
+        </button>
       </div>
     </div>
   );
@@ -549,6 +772,47 @@ function HidraTab() {
   );
 }
 
+// ─── New meal form ────────────────────────────────────────────────────────────
+
+function NewMealForm({ onAdd, onClose }: { onAdd: (name: string, time: string) => void; onClose: () => void }) {
+  const [name, setName] = useState('');
+  const [time, setTime] = useState('12:00');
+  return (
+    <div className="bg-surface rounded-2xl border border-[#1E1E2A] p-4 space-y-3">
+      <p className="text-white font-semibold text-sm">Nova refeição</p>
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Ex: Lanche da tarde"
+        autoFocus
+        className="w-full p-2.5 bg-[#1a1a28] border border-[#1E1E2A] rounded-xl text-white text-sm placeholder-[#52525B] focus:outline-none focus:border-primary/40"
+      />
+      <input
+        type="time"
+        value={time}
+        onChange={(e) => setTime(e.target.value)}
+        className="w-full p-2.5 bg-[#1a1a28] border border-[#1E1E2A] rounded-xl text-white text-sm focus:outline-none focus:border-primary/40"
+      />
+      <div className="flex gap-2">
+        <button
+          onClick={onClose}
+          className="flex-1 py-2 rounded-xl border border-[#1E1E2A] text-[#A1A1AA] text-sm"
+        >
+          Cancelar
+        </button>
+        <button
+          onClick={() => { if (name.trim()) { onAdd(name.trim(), time); onClose(); } }}
+          disabled={!name.trim()}
+          className="flex-1 py-2 rounded-xl bg-primary text-black font-bold text-sm disabled:opacity-40"
+        >
+          Criar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Nutri Tab ────────────────────────────────────────────────────────────────
 
 function NutriTab({
@@ -559,11 +823,13 @@ function NutriTab({
   onUpdateDietDay: (id: 'current' | 'last', day: DailyDiet) => void;
 }) {
   const { goals } = useNutritionStore();
-  const userId = useUserStore((s) => s.user?.uid) ?? '';
 
-  const MIN_OFFSET = -13; // 14 days including today
-  const [dateOffset, setDateOffset] = useState(0);
-  const [showAddFood, setShowAddFood] = useState(false);
+  const MIN_OFFSET = -13;
+  const [dateOffset, setDateOffset]   = useState(0);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [activeMealId, setActiveMealId] = useState<string>('');
+  const [editingItem, setEditingItem]   = useState<DietItem | null>(null);
+  const [showNewMeal, setShowNewMeal]   = useState(false);
 
   const targetDate = (() => {
     const d = new Date();
@@ -581,14 +847,12 @@ function NutriTab({
     return `${weekdays[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]}`;
   })();
 
-  // Find AI plan day that matches the selected date
   const aiPlanEntry = dietHistory
     .flatMap((p) => p.days.map((day) => ({ planId: p.id as 'current' | 'last', day })))
     .find((e) => e.day.date === targetDate);
-  const aiDay = aiPlanEntry?.day ?? null;
+  const aiDay   = aiPlanEntry?.day ?? null;
   const aiPlanId = aiPlanEntry?.planId ?? 'current';
 
-  // Consumed from checked AI plan items (updates in real-time as user checks/unchecks)
   const aiConsumed = useMemo(() => {
     if (!aiDay) return { calories: 0, protein: 0, carbs: 0, fat: 0 };
     const checked = aiDay.meals.flatMap((m) => m.items).filter((i) => i.isConsumed);
@@ -600,13 +864,11 @@ function NutriTab({
     };
   }, [aiDay]);
 
-  // Goals from AI plan item-sum (fallback when no explicit goals saved yet)
   const itemSumGoals = useMemo(() => {
     if (!aiDay) return null;
     const all = aiDay.meals.flatMap((m) => m.items);
     if (!all.length) return null;
     const cal = Math.round(all.reduce((s, i) => s + (Number(i.calories) || 0), 0));
-    // Only use item-sum goals if they look realistic (> 500 kcal)
     if (cal < 500) return null;
     return {
       calories: cal,
@@ -616,14 +878,11 @@ function NutriTab({
     };
   }, [aiDay]);
 
-  // Priority: store goals (AI-set via Firestore) → item-sum → hardcoded defaults
-  // Store goals are updated by AppContext when TitanAI saves metasDiarias
   const storeGoalsAreAiSet = goals.calories !== 2200 || goals.protein !== 150;
   const ringGoals = storeGoalsAreAiSet
     ? { calories: goals.calories, protein: goals.protein, carbs: goals.carbs, fat: goals.fat }
     : (itemSumGoals ?? goals);
 
-  // Combined: AI checked items + manually logged meals
   const consumedTotals = {
     calories: aiConsumed.calories + manualTotals.calories,
     protein:  aiConsumed.protein  + manualTotals.protein,
@@ -631,21 +890,77 @@ function NutriTab({
     fat:      aiConsumed.fat      + manualTotals.fat,
   };
 
-  const toggleAiItem = (mealId: string, itemIdx: number) => {
-    if (!aiDay) return;
-    const newMeals = aiDay.meals.map((m) => {
-      if (m.id !== mealId) return m;
-      return {
-        ...m,
-        items: m.items.map((item, j) =>
-          j === itemIdx ? { ...item, isConsumed: !item.isConsumed } : item
-        ),
-      };
-    });
-    onUpdateDietDay(aiPlanId, { ...aiDay, meals: newMeals });
+  // ── Meal mutation helpers ──────────────────────────────────────────────────
+
+  const updateDay = (newMeals: DietMeal[]) => {
+    const day: DailyDiet = aiDay
+      ? { ...aiDay, meals: newMeals }
+      : {
+          date: targetDate,
+          dayName: new Date(targetDate + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'long' }),
+          meals: newMeals,
+        };
+    onUpdateDietDay(aiPlanId, day);
   };
 
-  // All manual entries regardless of type
+  const toggleAiItem = (mealId: string, itemIdx: number) => {
+    if (!aiDay) return;
+    updateDay(aiDay.meals.map((m) => {
+      if (m.id !== mealId) return m;
+      return { ...m, items: m.items.map((it, j) => j === itemIdx ? { ...it, isConsumed: !it.isConsumed } : it) };
+    }));
+  };
+
+  const addItemToMeal = (mealId: string, item: DietItem) => {
+    const meals = (aiDay?.meals ?? []).map((m) =>
+      m.id !== mealId ? m : { ...m, items: [...m.items, item] }
+    );
+    updateDay(meals);
+  };
+
+  const editItemInMeal = (mealId: string, updated: DietItem) => {
+    if (!aiDay) return;
+    updateDay(aiDay.meals.map((m) =>
+      m.id !== mealId ? m : { ...m, items: m.items.map((it) => it.id === updated.id ? updated : it) }
+    ));
+  };
+
+  const removeItemFromMeal = (mealId: string, itemId: string) => {
+    if (!aiDay) return;
+    updateDay(aiDay.meals.map((m) =>
+      m.id !== mealId ? m : { ...m, items: m.items.filter((it) => it.id !== itemId) }
+    ));
+  };
+
+  const addNewMeal = (name: string, time: string) => {
+    const newMeal: DietMeal = { id: crypto.randomUUID(), name, time, items: [] };
+    updateDay([...(aiDay?.meals ?? []), newMeal]);
+  };
+
+  // ── Modal handlers ─────────────────────────────────────────────────────────
+
+  const openAddModal = (mealId: string) => {
+    setActiveMealId(mealId);
+    setEditingItem(null);
+    setShowAddModal(true);
+  };
+
+  const openEditModal = (mealId: string, item: DietItem) => {
+    setActiveMealId(mealId);
+    setEditingItem(item);
+    setShowAddModal(true);
+  };
+
+  const handleModalConfirm = (item: DietItem) => {
+    if (editingItem) {
+      editItemInMeal(activeMealId, item);
+    } else {
+      addItemToMeal(activeMealId, item);
+    }
+    setShowAddModal(false);
+    setEditingItem(null);
+  };
+
   const allManualEntries = dailyNutrition?.meals ?? [];
 
   return (
@@ -679,22 +994,31 @@ function NutriTab({
         </div>
       </div>
 
-      {/* AI plan meals — rendered dynamically as the TitanAI defined them */}
+      {/* AI plan meals */}
       {aiDay ? (
         aiDay.meals.map((meal) => {
           const mealCals = meal.items.reduce((s, i) => s + (i.calories ?? 0), 0);
           return (
             <div key={meal.id} className="bg-surface rounded-2xl border border-[#1E1E2A] overflow-hidden">
-              {/* Meal header: name + time defined by TitanAI */}
+              {/* Meal header */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-[#1E1E2A]">
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1.5 bg-primary/10 border border-primary/20 rounded-lg px-2 py-1">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="flex items-center gap-1.5 bg-primary/10 border border-primary/20 rounded-lg px-2 py-1 shrink-0">
                     <Clock size={10} className="text-primary" />
                     <span className="text-primary text-[11px] font-bold">{meal.time}</span>
                   </div>
-                  <p className="text-white font-semibold text-sm">{meal.name}</p>
+                  <p className="text-white font-semibold text-sm truncate">{meal.name}</p>
                 </div>
-                {mealCals > 0 && <p className="text-primary text-xs font-bold shrink-0">{mealCals} kcal</p>}
+                <div className="flex items-center gap-2 shrink-0">
+                  {mealCals > 0 && <p className="text-primary text-xs font-bold">{mealCals} kcal</p>}
+                  <button
+                    onClick={() => openAddModal(meal.id)}
+                    className="p-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors"
+                    title="Adicionar item"
+                  >
+                    <Plus size={13} />
+                  </button>
+                </div>
               </div>
 
               {/* Items */}
@@ -702,8 +1026,9 @@ function NutriTab({
                 {meal.items.map((item, iIdx) => (
                   <div
                     key={item.id}
-                    className={`flex items-center gap-3 px-4 py-2.5 transition-opacity ${item.isConsumed ? 'opacity-40' : ''}`}
+                    className={`flex items-center gap-2 px-4 py-2.5 transition-opacity ${item.isConsumed ? 'opacity-40' : ''}`}
                   >
+                    {/* Checkbox */}
                     <button
                       onClick={() => toggleAiItem(meal.id, iIdx)}
                       className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
@@ -712,40 +1037,69 @@ function NutriTab({
                     >
                       {item.isConsumed && <Check size={10} strokeWidth={3} />}
                     </button>
-                    <span className={`flex-1 text-sm ${item.isConsumed ? 'line-through text-[#52525B]' : 'text-white'}`}>
-                      {item.name}
-                    </span>
-                    <div className="text-right shrink-0">
-                      <p className="text-xs text-[#52525B]">{item.quantity}</p>
-                      {(item.protein != null || item.carbs != null || item.fat != null) && (
-                        <p className="text-[10px] text-[#3f3f46]">
-                          {item.protein != null ? `P:${item.protein}g ` : ''}
-                          {item.carbs != null ? `C:${item.carbs}g ` : ''}
-                          {item.fat != null ? `G:${item.fat}g` : ''}
-                        </p>
-                      )}
+
+                    {/* Name + macros */}
+                    <div className="flex-1 min-w-0">
+                      <span className={`text-sm leading-tight block truncate ${item.isConsumed ? 'line-through text-[#52525B]' : 'text-white'}`}>
+                        {item.name}
+                      </span>
+                      <p className="text-[10px] text-[#3f3f46] leading-tight">
+                        {item.quantity}
+                        {item.protein != null ? ` · P:${item.protein}g` : ''}
+                        {item.carbs != null ? ` C:${item.carbs}g` : ''}
+                        {item.fat != null ? ` G:${item.fat}g` : ''}
+                      </p>
                     </div>
+
+                    {/* Calories */}
                     {item.calories != null && (
                       <span className={`text-xs font-semibold shrink-0 ${item.isConsumed ? 'text-[#3f3f46]' : 'text-primary/70'}`}>
                         {item.calories} kcal
                       </span>
                     )}
+
+                    {/* Edit button */}
+                    <button
+                      onClick={() => openEditModal(meal.id, item)}
+                      className="p-1 text-[#52525B] hover:text-[#A1A1AA] transition-colors shrink-0"
+                      title="Editar"
+                    >
+                      <Pencil size={12} />
+                    </button>
+
+                    {/* Delete button */}
+                    <button
+                      onClick={() => removeItemFromMeal(meal.id, item.id)}
+                      className="p-1 text-[#52525B] hover:text-red-400 transition-colors shrink-0"
+                      title="Remover"
+                    >
+                      <Trash2 size={12} />
+                    </button>
                   </div>
                 ))}
+
+                {/* Empty meal placeholder */}
+                {meal.items.length === 0 && (
+                  <button
+                    onClick={() => openAddModal(meal.id)}
+                    className="w-full px-4 py-3 text-xs text-[#52525B] hover:text-[#A1A1AA] text-left transition-colors"
+                  >
+                    + Adicionar item
+                  </button>
+                )}
               </div>
             </div>
           );
         })
       ) : (
-        /* No AI plan for this day */
         <div className="bg-surface rounded-2xl border border-[#1E1E2A] flex flex-col items-center py-10 px-6 text-center gap-2">
           <Utensils size={28} className="text-[#3f3f46]" />
           <p className="text-[#A1A1AA] text-sm font-medium">Nenhum plano gerado para este dia</p>
-          <p className="text-[#52525B] text-xs">Peça ao TitanAI para montar sua dieta personalizada no chat.</p>
+          <p className="text-[#52525B] text-xs">Peça ao TitanAI para montar sua dieta ou crie uma refeição abaixo.</p>
         </div>
       )}
 
-      {/* Manual food entries (always shown, if any) */}
+      {/* Manual food entries */}
       {allManualEntries.length > 0 && (
         <div className="bg-surface rounded-2xl border border-[#1E1E2A] overflow-hidden">
           <div className="px-4 py-3 border-b border-[#1E1E2A]">
@@ -767,22 +1121,24 @@ function NutriTab({
         </div>
       )}
 
-      {/* Add food button */}
-      {userId && (
+      {/* New meal form / button */}
+      {showNewMeal ? (
+        <NewMealForm onAdd={addNewMeal} onClose={() => setShowNewMeal(false)} />
+      ) : (
         <button
-          onClick={() => setShowAddFood(true)}
+          onClick={() => setShowNewMeal(true)}
           className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-surface border border-[#1E1E2A] text-sm text-[#A1A1AA] hover:text-primary hover:border-primary/30 transition-colors"
         >
-          <Plus size={15} /> Registrar alimento
+          <Plus size={15} /> Nova refeição
         </button>
       )}
 
-      {showAddFood && userId && (
+      {/* Add / Edit food modal */}
+      {showAddModal && (
         <AddFoodModal
-          mealType="snack"
-          userId={userId}
-          date={targetDate}
-          onClose={() => setShowAddFood(false)}
+          onClose={() => { setShowAddModal(false); setEditingItem(null); }}
+          onConfirm={handleModalConfirm}
+          initial={editingItem ?? undefined}
         />
       )}
     </div>

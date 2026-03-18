@@ -45,5 +45,19 @@ export const callGenerateFullPlan = async (): Promise<void> => {
   }
 };
 
+/**
+ * Calls estimateMacros Cloud Function to get AI-estimated macros for a food
+ * not found in the TACO dataset.
+ */
+export const callEstimateMacros = async (
+  foodName: string,
+  quantity: number,
+  unit: string
+): Promise<{ calories: number; protein: number; carbs: number; fat: number }> => {
+  const fn = httpsCallable(functions, "estimateMacros", { timeout: 30_000 });
+  const result = await fn({ foodName, quantity, unit });
+  return result.data as { calories: number; protein: number; carbs: number; fat: number };
+};
+
 // No-op kept for backward-compat with existing call sites
 export const initializeChat = async () => Promise.resolve();

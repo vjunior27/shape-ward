@@ -1013,3 +1013,71 @@ Chame as ferramentas agora.`;
   }
 );
 
+// ─── estimateMacros ───────────────────────────────────────────────────────────
+// Lightweight function to estimate macros for a food not found in TACO dataset.
+
+export const estimateMacros = onCall(
+  {
+    secrets: [geminiApiKey],
+    enforceAppCheck: false,
+    cors: [
+      "https://trainova.app",
+      "https://shape-ward.web.app",
+      "http://localhost:5173",
+      "http://localhost:5174",
+    ],
+    timeoutSeconds: 30,
+    memory: "256MiB",
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Autenticação necessária.");
+    }
+
+    const { foodName, quantity, unit } = request.data as {
+      foodName?: string;
+      quantity?: number;
+      unit?: string;
+    };
+
+    if (!foodName || typeof foodName !== "string" || foodName.trim().length < 2) {
+      throw new HttpsError("invalid-argument", "Nome do alimento inválido.");
+    }
+
+    const safeName = sanitizeForPrompt(foodName, 100);
+    const safeQty  = Math.max(1, Math.min(Number(quantity) || 100, 5000));
+    const safeUnit = ["g", "ml", "un", "fatias", "colheres"].includes(String(unit)) ? unit : "g";
+
+    const ai = new GoogleGenAI({ apiKey: geminiApiKey.value() });
+
+    const prompt = `Você é um nutricionista. Estime os macronutrientes de ${safeQty}${safeUnit} de "${safeName}".
+Responda APENAS com JSON válido, sem texto, sem markdown, sem explicações.
+Formato exato: {"calories":0,"protein":0,"carbs":0,"fat":0}
+Use números inteiros realistas baseados em tabelas nutricionais brasileiras.`;
+
+    try {
+      const response = await ai.models.generateContent({
+        model: MODEL_NAME,
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        config: { temperature: 0.1, maxOutputTokens: 128 },
+      });
+
+      const text = response.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+      const jsonMatch = text.match(/\{[\s\S]*?\}/);
+      if (!jsonMatch) {
+        throw new HttpsError("internal", "Resposta inválida da IA.");
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]);
+      return {
+        calories: Math.max(0, Math.round(Number(parsed.calories) || 0)),
+        protein:  Math.max(0, Math.round((Number(parsed.protein)  || 0) * 10) / 10),
+        carbs:    Math.max(0, Math.round((Number(parsed.carbs)    || 0) * 10) / 10),
+        fat:      Math.max(0, Math.round((Number(parsed.fat)      || 0) * 10) / 10),
+      };
+    } catch (err: any) {
+      if (err instanceof HttpsError) throw err;
+      throw new HttpsError("internal", `Erro ao estimar: ${err.message ?? "Erro desconhecido"}`);
+    }
+  }
+);
